@@ -1,0 +1,203 @@
+---
+# defaults file for role_haproxy
+
+haproxy_config_dir: "/etc/haproxy"
+haproxy_destination_config_path: "{{ haproxy_config_dir }}/haproxy.cfg"
+haproxy_log_file: "/var/log/haproxy.log"
+haproxy_logrotate_file: /etc/logrotate.d/haproxy
+
+haproxy_whitelist_file_dir: "{{ haproxy_config_dir }}/whitelist"
+haproxy_whitelist_file_name: iplist.txt
+
+haproxy_cert_dir: "{{ haproxy_config_dir }}/certs"
+haproxy_cert_name: "nnc.guru-chained.pem"
+
+haproxy_global:
+  log:
+    - address: 127.0.0.1
+      facility: local2
+      max_level: info
+      min_level: alert
+  tune_ssl_default_dh_param: 2048
+  chroot: /var/lib/haproxy
+  pidfile: /var/run/haproxy.pid
+  maxconn: 4000
+  user: haproxy
+  group: haproxy
+  daemon: true
+  stats_socket:
+    - path: /var/lib/haproxy/stats
+
+haproxy_defaults:
+  mode: http
+  log:
+    - global: true
+  option:
+    - name: httplog
+    - name: dontlognull
+    - name: http-server-close
+    - name: forwardfor
+      params: except 127.0.0.0/8
+    - name: redispatch
+  retries: 3
+  timeout:
+    - name: http-request
+      value: 10s
+    - name: queue
+      value: 1m
+    - name: connect
+      value: 10s
+    - name: client
+      value: 1m
+    - name: server
+      value: 1m
+    - name: http-keep-alive
+      value: 10s
+    - name: check
+      value: 10s
+  maxconn: 3000
+
+haproxy_listen:
+  - name: http_health_check
+    mode: http
+    monitor_uri: /haproxy
+    bind:
+      - address: 127.0.0.1
+        port: 8000
+    option:
+      - name: dontlognull
+      - name: httpchk
+  - name: stats
+    mode: http
+    bind:
+      - address: 127.0.0.1
+        port: 9000
+    stats:
+      enable: true
+      hide_version: true
+      scope:
+        - .
+      uri: /admin?stats
+      realm: HAProxy\ Statistics
+      auth:
+        - login: admin-user
+          password: password123
+      refresh: 5s
+
+haproxy_frontend:
+  - name: main-http
+    mode: http
+    bind:
+      - address: 127.0.0.1
+        port: 5001
+      - address: 127.0.0.1
+        port: 5002
+    backlog: 10000
+    use_backend:
+      - name: app
+        condition: '!{ ssl_fc }'
+    default_backend: app
+  - name: main-https
+    mode: http
+    bind:
+      - address: 127.0.0.1
+        port: 5003
+    option:
+      - name: contstats
+      - name: http-server-close
+      - name: httplog
+    timeout:
+      - name: client
+        value: 300s
+      - name: http-keep-alive
+        value: 1s
+      - name: http-request
+        value: 15s
+      - name: tarpit
+        value: 60s
+    capture:
+      - type: cookie
+        name: JSESSIONID
+        len: 32
+      - type: request header
+        name: Host
+        len: 15
+    monitor_uri: /haproxy
+    acl:
+      - name: is_root
+        fetch: path -i  /
+    http_request:
+      - action: set-header
+        params: X-Forwarded-Proto http
+        condition: '!{ ssl_fc }'
+    redirect:
+      - type: scheme
+        value: https
+        code: 301
+        option: drop-query
+        condition: '!{ ssl_fc }'
+    use_backend:
+      - name: app
+        condition: '!{ ssl_fc }'
+
+haproxy_backend:
+  - name: app
+    mode: http
+    balance: source
+    hash_type:
+      method: consistent
+      function: djb2
+    compression:
+      algo: gzip
+      type:
+        - text/plain
+        - text/css
+        - application/json
+        - application/x-javascript
+        - text/xml
+        - application/xml
+        - application/xml+rss
+        - text/javascript
+        - application/javascript
+    option:
+      - name: forwardfor
+      - name: httpchk
+        params: /
+    timeout:
+      - name: tunnel
+        value: 86400s
+    acl:
+      - name: is_root
+        fetch: path -i /
+      - name: hdr_set_cookie_path
+        fetch: res.hdr(Set-cookie) -m sub Path=
+    http_request:
+      - action: set-header
+        params: Test-Header
+        condition: '!{ ssl_fc } is_root'
+    http_response:
+      - action: replace-value
+        params: Cache-control ^public$ private
+        condition: is_root
+    use_server:
+      - name: server1
+        condition: hdr(host) -i test.nnc.guru
+    server:
+      - name: server1
+        address: 10.10.10.10
+        port: 6400
+        params: check
+      - name: server2
+        address: 10.10.10.11
+        port: 6400
+        params: check
+    stick_table:
+      type: string
+      len: 32
+      size: 1M
+    stick:
+      - type: store-response
+        pattern: res.cook(JSESSIONID)
+        table: "app"
+      - type: "on"
+        pattern: req.cook(JSESSIONID)

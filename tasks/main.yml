@@ -1,0 +1,80 @@
+---
+# tasks file for role_haproxy
+
+- name: Check Packages
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Install HAProxy Package from Repository
+  vars:
+    supported_os: ["RedHat", "Debian"]
+  include_tasks: "install-{{ ansible_os_family }}.yml"
+  when: ansible_os_family in supported_os
+
+- name: configure haproxy logging
+  ansible.builtin.template:
+    src: haproxy.conf.j2
+    dest: /etc/rsyslog.d/haproxy.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart rsyslog
+
+- name: Create Certificate Folder
+  ansible.builtin.file:
+    path: "{{ haproxy_cert_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy Certificate to Host
+  ansible.builtin.copy:
+    src: "{{ haproxy_cert_name }}"
+    dest: "{{ haproxy_cert_dir }}/{{ haproxy_cert_name }}"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Create Whitelist Folder
+  ansible.builtin.file:
+    path: "{{ haproxy_whitelist_file_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy Whitelist File to Host
+  ansible.builtin.copy:
+    src: "{{ haproxy_whitelist_file_name }}"
+    dest: "{{ haproxy_whitelist_file_dir }}/{{ haproxy_whitelist_file_name }}"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Ensure log file for HAProxy exists
+  ansible.builtin.file:
+    path: "{{ haproxy_log_file }}"
+    state: touch
+    modification_time: "preserve"
+    access_time: "preserve"
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Correct logrotate configuration
+  lineinfile:
+    path: "{{ haproxy_logrotate_file }}"
+    insertbefore: BOF
+    line: "{{ haproxy_log_file }}"
+
+- name: Configure haproxy using haproxy.cfg
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ haproxy_destination_config_path }}"
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload haproxy

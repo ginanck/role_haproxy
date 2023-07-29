@@ -1,0 +1,253 @@
+{%- macro add_stickiness(item) %}
+    {% if item.stick is defined and item.stick_on is undefined and item.stick_store_response is undefined %}
+        {% for rule in item.stick %}
+    stick       {{ rule.type }} {{ rule.pattern }}{{ " table " ~ rule.table if rule.table is defined else "" }}{{ " if " ~ rule.condition if rule.condition is defined else "" }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_balance(item) %}
+    {% if item.balance is defined %}
+    balance     {{ item.balance }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_cookie(item) %}
+    {% if item.cookie is defined %}
+    cookie      {{ item.cookie.name }} {{ item.cookie.options | join(" ") }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_http_check(item) %}
+    {% if item.http_check is defined %}
+    http-check     {{ item.http_check }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_backlog(item) %}
+    {% if item.backlog is defined %}
+    backlog     {{ item.backlog }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_default_backend(item) %}
+    {% if item.default_backend is defined %}
+    default_backend {{ item.default_backend }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_monitor(item) %}
+    {% if item.monitor_uri is defined %}
+    monitor-uri {{ item.monitor_uri }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_retries(item) %}
+    {% if item.retries is defined %}
+    retries     {{ item.retries }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_stick_table(item) %}
+    {% if item.stick_table is defined %}
+    stick-table type {{ item.stick_table.type }}{{ " len " ~ item.stick_table.len if item.stick_table.len is defined else "" }} size {{ item.stick_table.size }}{{ " expire " ~ item.stick_table.expire if item.stick_table.expire is defined else "" }}{{ " peers " ~ item.stick_table.peers if item.stick_table.peers is defined else "" }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_compression(item) %}
+    {% if item.compression is defined %}
+    compression algo {{ item.compression.algo }}
+    compression type {{ item.compression.type | join(' ') }}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_captures(item) %}
+    {% if item.capture is defined %}
+        {% for item in item.capture  %}
+    capture     {{ item.type }} {{ item.name }} len {{ item.len }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_options(item) %}
+    {% if item.option is defined %}
+        {% for item in item.option  %}
+    option      {{ item.name }} {{ item.params | default("") }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_timeouts(item) %}
+    {% if item.timeout is defined %}
+        {% for item in item.timeout %}
+    timeout     {{ item.name }} {{ item.value }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_acls(item) %}
+    {% if item.acl is defined %}
+        {% for acl in item.acl %}
+    acl         {{ acl.name }} {{ acl.fetch }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_usable_servers(item) %}
+    {% if item.use_server is defined %}
+        {% for use in item.use_server %}
+    use-server  {{ use.name }} if { {{ use.condition }} }
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_usable_backends(item) %}
+    {% if item.use_backend is defined %}
+        {% for backend in item.use_backend %}
+    use_backend {{ backend.name }}{{ " if " ~ backend.condition if backend.condition is defined else "" }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_hash_type(item) %}
+    {% if item.hash_type is defined %}
+        {% if item.hash_type.function is defined %}
+    hash-type   {{ item.hash_type.method }} {{ item.hash_type.function }}
+        {% else %}
+    hash-type   {{ item.hash_type.method }}
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_logs(item) %}
+    {% if item.log is defined %}
+        {% for log in item.log %}
+            {% if log.global | default(false)  %}
+    log         global
+            {% else %}
+    log         {{ log.address }} {{ log.facility }} {{ log.max_level }} {{ log.min_level }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_redirects(item) %}
+    {% if item.redirect is defined %}
+        {% for redirect in item.redirect %}
+            {% if redirect.code is defined %}
+    redirect    {{ redirect.type }} {{ redirect.value }} code {{ redirect.code }} {{ redirect.option | default("") }}{{ " if " ~ redirect.condition if redirect.condition is defined else "" }}
+            {% else %}
+    redirect    {{ redirect.type }} {{ redirect.value }} {{ redirect.option | default("") }}{{ " if " ~ redirect.condition if redirect.condition is defined else "" }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_http(side, proxy) %}
+    {% if proxy["http_" ~ side] is defined %}
+        {% for item in proxy["http_" ~ side] %}
+            {% if item.condition is defined %}
+    http-{{ side }}    {{ item.action }} {{ item.params | default("") }} if {{ item.condition }}
+            {% elif item.unless is defined %}
+    http-{{ side }}    {{ item.action }} {{ item.params | default("") }} unless {{ item.unless }}
+            {% else %}
+    http-{{ side }}    {{ item.action }} {{ item.params | default("") }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_tcp(side, proxy) %}
+    {% if proxy["tcp_" ~ side] is defined %}
+        {% for item in proxy["tcp_" ~ side] %}
+            {% if item.condition is defined %}
+    tcp-{{ side }}    {{ item.action }} {{ item.params | default("") }} if {{ item.condition }}
+            {% elif item.unless is defined %}
+    tcp-{{ side }}    {{ item.action }} {{ item.params | default("") }} unless {{ item.unless }}
+            {% else %}
+    tcp-{{ side }}    {{ item.action }} {{ item.params | default("") }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_servers(item) %}
+    {% if item.server is defined %}
+        {% for server in item.server %}
+            {% if server.port is defined %}
+    server      {{ server.name }} {{ server.address }}:{{ server.port }} {{ server.params | default("") }}
+            {% else %}
+    server      {{ server.name }} {{ server.address}} {{ server.params | default("") }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_sticks(item) %}
+    {% if item.stick_store_response is defined %}
+        {% for item in item.stick_store_response %}
+    stick       store-response {{ item.pattern }}{{ " table " ~ item.table if item.table is defined else "" }}{{ " if " ~ item.condition if item.condition is defined else "" }}
+        {% endfor %}
+    {% endif %}
+    {% if item.stick_on is defined %}
+        {% for item in item.stick_on %}
+    stick       on {{ item.pattern }}{{ " table " ~ item.table if item.table is defined else "" }}{{ " if " ~ item.condition if item.condition is defined else "" }}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{%- macro add_binds(item) %}
+    {% for socket in item.bind %}
+        {% if socket.path is defined %}
+    bind        {{ socket.path }}
+        {% elif socket.address is defined and socket.port is defined %}
+            {% if socket.cert_path is defined %}
+    bind        {{ socket.address }}:{{ socket.port }} ssl crt {{ socket.cert_path }}
+            {% else %}
+    bind        {{ socket.address }}:{{ socket.port }}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+{%- endmacro %}
+
+{%- macro add_stats(item) %}
+    {% if item.stats is defined %}
+        {% if item.stats.enable | default(true) %}
+    stats       enable
+            {% if item.stats.hide_version | default(false) %}
+    stats       hide-version
+            {% endif %}
+            {% if item.stats.uri is defined %}
+    stats       uri {{ item.stats.uri }}
+            {% endif %}
+            {% if item.stats.scope is defined %}
+                {% for scope in item.stats.scope %}
+    stats       scope {{ scope }}
+                {% endfor %}
+            {% endif %}
+            {% if item.stats.refresh is defined %}
+    stats       refresh {{ item.stats.refresh }}
+            {% endif %}
+            {% if item.stats.show_desk is defined %}
+    stats       show-desk {{ item.stats.show_desk }}
+            {% endif %}
+            {% if item.stats.show_legends | default(false) %}
+    stats       show-legends
+            {% endif %}
+            {% if item.stats.show_node is defined %}
+    stats       show-node {{ item.stats.show_node }}
+            {% endif %}
+            {% if item.stats.admin is defined %}
+    stats       admin if {{ item.stats.admin.condition }}
+            {% endif %}
+            {% if item.stats.auth is defined %}
+                {% for auth in item.stats.auth %}
+    stats       auth {{ auth.login }}:{{ auth.password }}
+                {% endfor %}
+                {% if item.stats.realm is defined %}
+    stats       realm {{ item.stats.realm }}
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{%- endmacro %}

@@ -1,0 +1,12 @@
+---
+# handlers file for role_haproxy
+
+- name: reload haproxy
+  service:
+    name: "haproxy"
+    state: reloaded
+
+- name: restart rsyslog
+  service:
+    name: "rsyslog"
+    state: restarted

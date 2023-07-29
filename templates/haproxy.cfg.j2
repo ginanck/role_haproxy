@@ -1,0 +1,176 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{% import "macros.j2" as macro %}
+
+global
+{% for item in haproxy_global.log %}
+    log         {{ item.address }} {{ item.facility }} {{ item.max_level }} {{ item.min_level }}
+{% endfor %}
+{% if haproxy_global.tune_ssl_default_dh_param is defined %}
+    tune.ssl.default-dh-param {{ haproxy_global.tune_ssl_default_dh_param }}
+{% endif %}
+{% if haproxy_global.default_bind_ciphers is defined %}
+    ssl-default-bind-ciphers {{ haproxy_global.default_bind_ciphers }}
+{% endif %}
+{% if haproxy_global.default_server_ciphers is defined %}
+    ssl-default-server-ciphers {{ haproxy_global.default_server_ciphers }}
+{% endif %}
+{% if haproxy_global.default_bind_options is defined %}
+    ssl-default-bind-options {{ haproxy_global.default_bind_options }}
+{% endif %}
+{% if haproxy_global.default_server_options is defined %}
+    ssl-default-server-options {{ haproxy_global.default_server_options }}
+{% endif %}
+    chroot      {{ haproxy_global.chroot }}
+    pidfile     {{ haproxy_global.pidfile }}
+    maxconn     {{ haproxy_global.maxconn }}
+{% if haproxy_global.user is defined %}
+    user        {{ haproxy_global.user }}
+{% endif %}
+{% if haproxy_global.group is defined %}
+    group       {{ haproxy_global.group }}
+{% endif %}
+{% if haproxy_global.daemon is defined and haproxy_global.daemon %}
+    daemon
+{% endif %}
+{%if haproxy_global.stats_socket is defined %}
+  {% for item in haproxy_global.stats_socket %}
+    {% if item.path is defined %}
+    stats socket {{ item.path }}{%
+        if item.mode is defined %} mode {{ item.mode }}{% endif %}{%
+        if item.user is defined %} user {{ item.user }}{% endif %}
+{# whitespace #}
+    {% elif item.address is defined and item.port is defined %}
+    stats socket {{ item.address }}:{{ item.port }}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+
+defaults
+    mode        {{ haproxy_defaults.mode | default('http') }}
+{{ macro.add_balance(haproxy_defaults) }}
+{{- macro.add_hash_type(haproxy_defaults) }}
+{{- macro.add_logs(haproxy_defaults) -}}
+{# whitespace #}
+    maxconn     {{ haproxy_defaults.maxconn | default(10000) }}
+{{ macro.add_retries(haproxy_defaults) }}
+{{- macro.add_backlog(haproxy_defaults) }}
+{{- macro.add_options(haproxy_defaults) }}
+{{- macro.add_timeouts(haproxy_defaults) }}
+{{- macro.add_compression(haproxy_defaults) }}
+{{- macro.add_cookie(haproxy_defaults) }}
+{{- macro.add_default_backend(haproxy_defaults) }}
+{{- macro.add_stats(haproxy_defaults) }}
+
+{% if haproxy_peers is defined %}
+peers {{ haproxy_peers.name }}
+  {% for item in haproxy_peers.list %}
+    peer        {{ item.node }} {{ item.address }}:{{ item.port }}
+  {% endfor %}
+{% endif %}
+
+{% if haproxy_userlists is defined %}
+  {% for list in haproxy_userlists %}
+userlist {{ list.name }}
+    {% if list.groups is defined %}
+      {% for group in list.groups %}
+    group {{ group.name }} {{ "users " + [",", group.users]|join() if group.users is defined else "" }}
+      {% endfor %}
+{# whitespace #}
+    {% endif %}
+    {% for user in list.users %}
+        {% if user.encrypt_password | default(true) %}
+    user {{ user.name }} password {{ user.password }}
+        {% else %}
+    user {{ user.name }} insecure-password {{ user.password }}
+        {% endif %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{% if haproxy_listen is defined %}
+  {% for listen in haproxy_listen %}
+listen {{ listen.name }}
+    mode        {{ listen.mode }}
+{# whitespace #}
+    {{- macro.add_balance(listen) }}
+    {{- macro.add_hash_type(listen) }}
+    {{- macro.add_logs(listen) }}
+    {{- macro.add_retries(listen) }}
+    {{- macro.add_monitor(listen) }}
+    {{- macro.add_binds(listen) }}
+    {{- macro.add_backlog(listen) }}
+    {{- macro.add_options(listen) }}
+    {{- macro.add_captures(listen) }}
+    {{- macro.add_compression(listen) }}
+    {{- macro.add_stick_table(listen) }}
+    {{- macro.add_sticks(listen) }}
+    {{- macro.add_stickiness(listen) }}
+    {{- macro.add_acls(listen) }}
+    {{- macro.add_http("request", listen) }}
+    {{- macro.add_http("response", listen) }}
+    {{- macro.add_tcp("request", listen) }}
+    {{- macro.add_tcp("response", listen) }}
+    {{- macro.add_cookie(listen) }}
+    {{- macro.add_redirects(listen) }}
+    {{- macro.add_usable_backends(listen) }}
+    {{- macro.add_default_backend(listen) }}
+    {{- macro.add_usable_servers(listen) }}
+    {{- macro.add_servers(listen) }}
+    {{- macro.add_stats(listen) }}
+  {% endfor %}
+{% endif %}
+
+{% if haproxy_frontend is defined %}
+  {% for frontend in haproxy_frontend %}
+frontend {{ frontend.name }}
+    mode        {{ frontend.mode }}
+{# whitespace #}
+    {{- macro.add_binds(frontend) }}
+    {{- macro.add_logs(frontend) }}
+    {{- macro.add_backlog(frontend) }}
+    {{- macro.add_options(frontend) }}
+    {{- macro.add_timeouts(frontend) }}
+    {{- macro.add_compression(frontend) }}
+    {{- macro.add_captures(frontend) }}
+    {{- macro.add_monitor(frontend) }}
+    {{- macro.add_stick_table(frontend) }}
+    {{- macro.add_acls(frontend) }}
+    {{- macro.add_http("request", frontend) }}
+    {{- macro.add_http("response", frontend) }}
+    {{- macro.add_tcp("request", frontend) }}
+    {{- macro.add_tcp("response", frontend) }}
+    {{- macro.add_redirects(frontend) }}
+    {{- macro.add_usable_backends(frontend) }}
+    {{- macro.add_default_backend(frontend) }}
+    {{- macro.add_stats(frontend) }}
+  {% endfor %}
+{% endif %}
+
+{% if haproxy_backend is defined %}
+  {% for backend in haproxy_backend %}
+backend {{ backend.name }}
+    mode        {{ backend.mode }}
+{# whitespace #}
+    {{- macro.add_balance(backend) }}
+    {{- macro.add_hash_type(backend) }}
+    {{- macro.add_logs(backend) }}
+    {{- macro.add_retries(backend) }}
+    {{- macro.add_stick_table(backend) }}
+    {{- macro.add_sticks(backend) }}
+    {{- macro.add_stickiness(backend) }}
+    {{- macro.add_compression(backend) }}
+    {{- macro.add_options(backend) }}
+    {{- macro.add_http_check(backend) }}
+    {{- macro.add_timeouts(backend) }}
+    {{- macro.add_acls(backend) }}
+    {{- macro.add_http("request", backend) }}
+    {{- macro.add_http("response", backend) }}
+    {{- macro.add_tcp("request", backend) }}
+    {{- macro.add_tcp("response", backend) }}
+    {{- macro.add_cookie(backend) }}
+    {{- macro.add_usable_servers(backend) }}
+    {{- macro.add_servers(backend) }}
+    {{- macro.add_stats(backend) }}
+  {% endfor %}
+{% endif %}
