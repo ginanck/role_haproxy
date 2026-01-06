@@ -2,11 +2,11 @@
 # handlers file for role_haproxy
 
 - name: reload haproxy
-  service:
+  ansible.builtin.service:
     name: "haproxy"
     state: reloaded
 
 - name: restart rsyslog
-  service:
+  ansible.builtin.service:
     name: "rsyslog"
     state: restarted
