@@ -95,7 +95,7 @@ ansible-galaxy install -r meta/install_requirements.yml
 | `haproxy_whitelist_file_dir` | `{{ haproxy_config_dir }}/whitelist` | None |
 | `haproxy_whitelist_file_name` | `iplist.txt` | None |
 | `haproxy_cert_dir` | `{{ haproxy_config_dir }}/certs` | None |
-| `haproxy_cert_name` | `nnc.guru-chained.pem` | None |
+| `haproxy_cert_name` | `` | None |
 | `haproxy_global` | `{}` | None |
 | `haproxy_global.log` | `[]` | None |
 | `haproxy_global.log.0` | `{}` | None |

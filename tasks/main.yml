@@ -28,6 +28,7 @@
     owner: root
     group: root
     mode: 0644
+  when: haproxy_cert_name | length > 0
 
 - name: Copy Certificate to Host
   ansible.builtin.copy:
@@ -36,6 +37,7 @@
     owner: root
     group: root
     mode: 0644
+  when: haproxy_cert_name | length > 0
 
 - name: Create Whitelist Folder
   ansible.builtin.file:

@@ -10,7 +10,7 @@ haproxy_whitelist_file_dir: "{{ haproxy_config_dir }}/whitelist"
 haproxy_whitelist_file_name: iplist.txt
 
 haproxy_cert_dir: "{{ haproxy_config_dir }}/certs"
-haproxy_cert_name: "nnc.guru-chained.pem"
+haproxy_cert_name: ""
 
 haproxy_global:
   log:
