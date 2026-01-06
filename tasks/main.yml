@@ -46,6 +46,7 @@
     owner: root
     group: root
     mode: 0644
+  when: haproxy_whitelist_file_name | length > 0
 
 - name: Copy Whitelist File to Host
   ansible.builtin.copy:
@@ -54,6 +55,7 @@
     owner: root
     group: root
     mode: 0644
+  when: haproxy_whitelist_file_name | length > 0
 
 - name: Ensure log file for HAProxy exists
   ansible.builtin.file:

@@ -93,7 +93,7 @@ ansible-galaxy install -r meta/install_requirements.yml
 | `haproxy_log_file` | `/var/log/haproxy.log` | None |
 | `haproxy_logrotate_file` | `/etc/logrotate.d/haproxy` | None |
 | `haproxy_whitelist_file_dir` | `{{ haproxy_config_dir }}/whitelist` | None |
-| `haproxy_whitelist_file_name` | `iplist.txt` | None |
+| `haproxy_whitelist_file_name` | `` | None |
 | `haproxy_cert_dir` | `{{ haproxy_config_dir }}/certs` | None |
 | `haproxy_cert_name` | `` | None |
 | `haproxy_global` | `{}` | None |

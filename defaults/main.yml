@@ -7,7 +7,7 @@ haproxy_log_file: "/var/log/haproxy.log"
 haproxy_logrotate_file: /etc/logrotate.d/haproxy
 
 haproxy_whitelist_file_dir: "{{ haproxy_config_dir }}/whitelist"
-haproxy_whitelist_file_name: iplist.txt
+haproxy_whitelist_file_name: ""
 
 haproxy_cert_dir: "{{ haproxy_config_dir }}/certs"
 haproxy_cert_name: ""
