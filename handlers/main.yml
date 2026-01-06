@@ -1,10 +1,32 @@
 ---
 # handlers file for role_haproxy
 
+- name: validate haproxy config
+  ansible.builtin.command:
+    cmd: haproxy -c -f {{ haproxy_destination_config_path }}
+  changed_when: false
+
 - name: reload haproxy
-  ansible.builtin.service:
-    name: "haproxy"
-    state: reloaded
+  block:
+    - name: Reload HAProxy service
+      ansible.builtin.service:
+        name: "haproxy"
+        state: reloaded
+  rescue:
+    - name: Get HAProxy service status
+      ansible.builtin.command:
+        cmd: journalctl -u haproxy -n 50 --no-pager
+      register: haproxy_journal
+      changed_when: false
+      ignore_errors: true
+
+    - name: Display HAProxy logs
+      ansible.builtin.debug:
+        msg: "{{ haproxy_journal.stdout_lines }}"
+
+    - name: Fail after displaying logs
+      ansible.builtin.fail:
+        msg: "HAProxy reload failed. See logs above."
 
 - name: restart rsyslog
   ansible.builtin.service:

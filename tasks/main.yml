@@ -86,4 +86,5 @@
     group: root
     mode: 0644
   notify:
+    - validate haproxy config
     - reload haproxy
