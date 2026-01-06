@@ -11,6 +11,11 @@
   ansible.builtin.include_tasks: "install-{{ ansible_os_family }}.yml"
   when: ansible_os_family in supported_os
 
+- name: Install rsyslog
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+
 - name: configure haproxy logging
   ansible.builtin.template:
     src: haproxy.conf.j2
