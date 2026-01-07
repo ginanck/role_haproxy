@@ -1,12 +1,12 @@
 ---
 # handlers file for role_haproxy
 
+- name: validate haproxy config
+  ansible.builtin.command:
+    cmd: haproxy -c -f {{ haproxy_destination_config_path }}
+  changed_when: false
+
 - name: reload haproxy
-  service:
+  ansible.builtin.service:
     name: "haproxy"
     state: reloaded
-
-- name: restart rsyslog
-  service:
-    name: "rsyslog"
-    state: restarted

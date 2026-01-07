@@ -125,7 +125,7 @@
             {% if log.global | default(false)  %}
     log         global
             {% else %}
-    log         {{ log.address }} {{ log.facility }} {{ log.max_level }} {{ log.min_level }}
+    log         {{ log.address }} {{ log.facility }}{{ " " ~ log.max_level if log.max_level is defined else "" }}{{ " " ~ log.min_level if log.min_level is defined else "" }}
             {% endif %}
         {% endfor %}
     {% endif %}

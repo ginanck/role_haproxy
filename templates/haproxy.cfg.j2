@@ -3,7 +3,7 @@
 
 global
 {% for item in haproxy_global.log %}
-    log         {{ item.address }} {{ item.facility }} {{ item.max_level }} {{ item.min_level }}
+    log         {{ item.address }} {{ item.facility }}{{ " " ~ item.max_level if item.max_level is defined else "" }}{{ " " ~ item.min_level if item.min_level is defined else "" }}
 {% endfor %}
 {% if haproxy_global.tune_ssl_default_dh_param is defined %}
     tune.ssl.default-dh-param {{ haproxy_global.tune_ssl_default_dh_param }}
