@@ -46,6 +46,20 @@
   when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
   listen: restart rsyslog
 
+- name: show rsyslog.conf content
+  ansible.builtin.command:
+    cmd: cat /etc/rsyslog.conf
+  register: rsyslog_main_conf
+  changed_when: false
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: display rsyslog.conf
+  ansible.builtin.debug:
+    msg: "{{ rsyslog_main_conf.stdout_lines }}"
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
 - name: show rsyslog haproxy config file
   ansible.builtin.command:
     cmd: cat /etc/rsyslog.d/haproxy.conf

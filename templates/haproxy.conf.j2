@@ -1,3 +1,6 @@
+# Disable capabilities for container compatibility
+$ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat
+
 module(load="imudp")
 input(type="imudp" port="514")
 
