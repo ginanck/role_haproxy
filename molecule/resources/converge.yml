@@ -3,4 +3,4 @@
   hosts: all
   become: true
   roles:
-    - role_haproxy
+    - role: role_base

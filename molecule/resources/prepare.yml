@@ -2,5 +2,4 @@
 - name: Prepare
   hosts: all
   become: true
-  roles:
-    - role_base
+  roles: []
