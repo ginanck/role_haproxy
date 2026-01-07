@@ -11,42 +11,6 @@
   ansible.builtin.include_tasks: "install-{{ ansible_os_family }}.yml"
   when: ansible_os_family in supported_os
 
-- name: Install rsyslog
-  ansible.builtin.package:
-    name: rsyslog
-    state: present
-
-- name: Remove rsyslog privilege dropping for container compatibility
-  ansible.builtin.lineinfile:
-    path: /etc/rsyslog.conf
-    regexp: '{{ item }}'
-    state: absent
-  loop:
-    - '^\$PrivDropToUser'
-    - '^\$PrivDropToGroup'
-  notify:
-    - restart rsyslog
-
-- name: Enable rsyslog UDP module for HAProxy
-  ansible.builtin.template:
-    src: rsyslog-udp.conf.j2
-    dest: /etc/rsyslog.d/00-udp.conf
-    owner: root
-    group: root
-    mode: 0644
-  notify:
-    - restart rsyslog
-
-- name: configure haproxy logging
-  ansible.builtin.template:
-    src: haproxy.conf.j2
-    dest: /etc/rsyslog.d/99-haproxy.conf
-    owner: root
-    group: root
-    mode: 0644
-  notify:
-    - restart rsyslog
-
 - name: Create Certificate Folder
   ansible.builtin.file:
     path: "{{ haproxy_cert_dir }}"
@@ -82,22 +46,6 @@
     group: root
     mode: 0644
   when: haproxy_whitelist_file_name | length > 0
-
-- name: Ensure log file for HAProxy exists
-  ansible.builtin.file:
-    path: "{{ haproxy_log_file }}"
-    state: touch
-    modification_time: "preserve"
-    access_time: "preserve"
-    owner: root
-    group: root
-    mode: 0600
-
-- name: Correct logrotate configuration
-  ansible.builtin.lineinfile:
-    path: "{{ haproxy_logrotate_file }}"
-    insertbefore: BOF
-    line: "{{ haproxy_log_file }}"
 
 - name: Configure haproxy using haproxy.cfg
   ansible.builtin.template:

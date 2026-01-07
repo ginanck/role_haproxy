@@ -1,4 +1,0 @@
-# HAProxy logging configuration
-# Filter HAProxy messages and write to dedicated log file
-if $programname == 'haproxy' then {{ haproxy_log_file }}
-& stop

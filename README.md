@@ -354,16 +354,10 @@ This role performs the following tasks:
 
 - **Check Packages**
 - **Install HAProxy Package from Repository**
-- **Install rsyslog**
-- **Remove rsyslog privilege dropping for container compatibility**
-- **Enable rsyslog UDP module for HAProxy**
-- **configure haproxy logging**
 - **Create Certificate Folder**
 - **Copy Certificate to Host**
 - **Create Whitelist Folder**
 - **Copy Whitelist File to Host**
-- **Ensure log file for HAProxy exists**
-- **Correct logrotate configuration**
 - **Configure haproxy using haproxy.cfg**
 
 
