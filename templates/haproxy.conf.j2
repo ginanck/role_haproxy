@@ -1,3 +1,9 @@
+# Disable privilege dropping for container compatibility
+global(
+  processInternalMessages="on"
+  umask="0000"
+)
+
 module(load="imudp")
 input(type="imudp" port="514")
 
