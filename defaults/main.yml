@@ -14,8 +14,15 @@ haproxy_cert_name: ""
 
 haproxy_global:
   log:
+    # Basic logging to syslog on localhost
     - address: 127.0.0.1
       facility: local0
+    # Advanced logging with severity levels (optional)
+    # Syslog levels: emerg, alert, crit, err, warning, notice, info, debug
+    # - address: 127.0.0.1
+    #   facility: local0
+    #   min_level: info      # Log everything from info and above (info, notice, warning, err, crit, alert, emerg)
+    #   max_level: notice    # Or specify a range from min_level to max_level
   tune_ssl_default_dh_param: 2048
   chroot: /var/lib/haproxy
   pidfile: /var/run/haproxy.pid
