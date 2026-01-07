@@ -16,16 +16,6 @@
     name: rsyslog
     state: present
 
-- name: Configure rsyslog for container compatibility
-  ansible.builtin.template:
-    src: rsyslog.conf.j2
-    dest: /etc/rsyslog.conf
-    owner: root
-    group: root
-    mode: 0644
-  notify:
-    - restart rsyslog
-
 - name: configure haproxy logging
   ansible.builtin.template:
     src: haproxy.conf.j2

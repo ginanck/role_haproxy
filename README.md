@@ -100,9 +100,7 @@ ansible-galaxy install -r meta/install_requirements.yml
 | `haproxy_global.log` | `[]` | None |
 | `haproxy_global.log.0` | `{}` | None |
 | `haproxy_global.log.0.address` | `127.0.0.1` | None |
-| `haproxy_global.log.0.facility` | `local2` | None |
-| `haproxy_global.log.0.max_level` | `info` | None |
-| `haproxy_global.log.0.min_level` | `alert` | None |
+| `haproxy_global.log.0.facility` | `local0` | None |
 | `haproxy_global.tune_ssl_default_dh_param` | `2048` | None |
 | `haproxy_global.chroot` | `/var/lib/haproxy` | None |
 | `haproxy_global.pidfile` | `/var/run/haproxy.pid` | None |
@@ -357,7 +355,6 @@ This role performs the following tasks:
 - **Check Packages**
 - **Install HAProxy Package from Repository**
 - **Install rsyslog**
-- **Configure rsyslog for container compatibility**
 - **configure haproxy logging**
 - **Create Certificate Folder**
 - **Copy Certificate to Host**

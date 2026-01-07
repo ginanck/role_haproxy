@@ -1,5 +1,3 @@
-module(load="imudp")
-input(type="imudp" port="514")
-
+# HAProxy logging configuration
 if $programname == 'haproxy' then {{ haproxy_log_file }}
-if $programname == 'haproxy' then stop
+& stop

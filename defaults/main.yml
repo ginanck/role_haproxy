@@ -15,9 +15,7 @@ haproxy_cert_name: ""
 haproxy_global:
   log:
     - address: 127.0.0.1
-      facility: local2
-      max_level: info
-      min_level: alert
+      facility: local0
   tune_ssl_default_dh_param: 2048
   chroot: /var/lib/haproxy
   pidfile: /var/run/haproxy.pid
