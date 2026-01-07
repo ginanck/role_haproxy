@@ -62,7 +62,7 @@
 
 - name: show rsyslog haproxy config file
   ansible.builtin.command:
-    cmd: cat /etc/rsyslog.d/haproxy.conf
+    cmd: cat /etc/rsyslog.d/99-haproxy.conf
   register: rsyslog_haproxy_conf
   changed_when: false
   when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
