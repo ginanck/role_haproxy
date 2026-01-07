@@ -37,3 +37,25 @@
   ansible.builtin.service:
     name: "rsyslog"
     state: restarted
+  register: rsyslog_restart_result
+  ignore_errors: true
+
+- name: show rsyslog logs on failure
+  ansible.builtin.command:
+    cmd: journalctl -u rsyslog -n 50 --no-pager
+  register: rsyslog_journal
+  changed_when: false
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: display rsyslog logs
+  ansible.builtin.debug:
+    msg: "{{ rsyslog_journal.stdout_lines }}"
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: fail on rsyslog restart error
+  ansible.builtin.fail:
+    msg: "rsyslog restart failed. See logs above."
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
