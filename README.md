@@ -24,10 +24,10 @@ role_haproxy to install haproxy
 
 
 - Supported platforms:
-  - Ubuntu (focal, jammy, noble)
-  - Debian (buster, bullseye, bookworm)
-  - EL (7, 8, 9)
-  - Rocky (8.0, 9.0)
+  - Ubuntu (jammy, noble)
+  - Debian (bullseye, bookworm)
+  - AlmaLinux (9, 10)
+  - RockyLinux (9.0, 10)
 
 
 
