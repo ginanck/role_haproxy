@@ -10,52 +10,8 @@
   ansible.builtin.service:
     name: "haproxy"
     state: reloaded
-  register: haproxy_reload_result
-  ignore_errors: true
-
-- name: show haproxy logs on failure
-  ansible.builtin.command:
-    cmd: journalctl -u haproxy -n 50 --no-pager
-  register: haproxy_journal
-  changed_when: false
-  when: haproxy_reload_result is defined and haproxy_reload_result.failed
-  listen: reload haproxy
-
-- name: display haproxy logs
-  ansible.builtin.debug:
-    msg: "{{ haproxy_journal.stdout_lines }}"
-  when: haproxy_reload_result is defined and haproxy_reload_result.failed
-  listen: reload haproxy
-
-- name: fail on reload error
-  ansible.builtin.fail:
-    msg: "HAProxy reload failed. See logs above."
-  when: haproxy_reload_result is defined and haproxy_reload_result.failed
-  listen: reload haproxy
 
 - name: restart rsyslog
   ansible.builtin.service:
     name: "rsyslog"
     state: restarted
-  register: rsyslog_restart_result
-  ignore_errors: true
-
-- name: show rsyslog logs on failure
-  ansible.builtin.command:
-    cmd: journalctl -u rsyslog -n 50 --no-pager
-  register: rsyslog_journal
-  changed_when: false
-  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
-  listen: restart rsyslog
-
-- name: display rsyslog logs
-  ansible.builtin.debug:
-    msg: "{{ rsyslog_journal.stdout_lines }}"
-  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
-  listen: restart rsyslog
-
-- name: fail on rsyslog restart error
-  ansible.builtin.fail:
-    msg: "rsyslog restart failed. See logs above."
-  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
-  listen: restart rsyslog
