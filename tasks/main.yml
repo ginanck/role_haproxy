@@ -16,6 +16,17 @@
     name: rsyslog
     state: present
 
+- name: Remove rsyslog privilege dropping for container compatibility
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.conf
+    regexp: '{{ item }}'
+    state: absent
+  loop:
+    - '^\$PrivDropToUser'
+    - '^\$PrivDropToGroup'
+  notify:
+    - restart rsyslog
+
 - name: Enable rsyslog UDP module for HAProxy
   ansible.builtin.template:
     src: rsyslog-udp.conf.j2
