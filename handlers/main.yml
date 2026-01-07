@@ -15,3 +15,67 @@
   ansible.builtin.service:
     name: "rsyslog"
     state: restarted
+  register: rsyslog_restart_result
+  ignore_errors: true
+
+- name: debug rsyslog configuration
+  ansible.builtin.command:
+    cmd: rsyslogd -N1
+  register: rsyslog_config_check
+  changed_when: false
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: show rsyslog config check
+  ansible.builtin.debug:
+    msg: "{{ rsyslog_config_check.stdout_lines | default([]) + rsyslog_config_check.stderr_lines | default([]) }}"
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: show rsyslog journal logs
+  ansible.builtin.command:
+    cmd: journalctl -u rsyslog -n 100 --no-pager
+  register: rsyslog_journal
+  changed_when: false
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: display rsyslog journal
+  ansible.builtin.debug:
+    msg: "{{ rsyslog_journal.stdout_lines }}"
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: show rsyslog.conf content
+  ansible.builtin.command:
+    cmd: cat /etc/rsyslog.conf
+  register: rsyslog_main_conf
+  changed_when: false
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: display rsyslog.conf
+  ansible.builtin.debug:
+    msg: "{{ rsyslog_main_conf.stdout_lines }}"
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: show rsyslog haproxy config file
+  ansible.builtin.command:
+    cmd: cat /etc/rsyslog.d/99-haproxy.conf
+  register: rsyslog_haproxy_conf
+  changed_when: false
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: display haproxy rsyslog config
+  ansible.builtin.debug:
+    msg: "{{ rsyslog_haproxy_conf.stdout_lines }}"
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
+
+- name: fail on rsyslog restart error
+  ansible.builtin.fail:
+    msg: "rsyslog restart failed. See debugging output above."
+  when: rsyslog_restart_result is defined and rsyslog_restart_result.failed
+  listen: restart rsyslog
