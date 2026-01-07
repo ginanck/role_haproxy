@@ -173,7 +173,7 @@ haproxy_backend:
         fetch: res.hdr(Set-cookie) -m sub Path=
     http_request:
       - action: set-header
-        params: Test-Header
+        params: Test-Header test-value
         condition: '!{ ssl_fc } is_root'
     http_response:
       - action: replace-value

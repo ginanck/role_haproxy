@@ -301,7 +301,7 @@ ansible-galaxy install -r meta/install_requirements.yml
 | `haproxy_backend.0.http_request` | `[]` | None |
 | `haproxy_backend.0.http_request.0` | `{}` | None |
 | `haproxy_backend.0.http_request.0.action` | `set-header` | None |
-| `haproxy_backend.0.http_request.0.params` | `Test-Header` | None |
+| `haproxy_backend.0.http_request.0.params` | `Test-Header test-value` | None |
 | `haproxy_backend.0.http_request.0.condition` | `!{ ssl_fc } is_root` | None |
 | `haproxy_backend.0.http_response` | `[]` | None |
 | `haproxy_backend.0.http_response.0` | `{}` | None |
