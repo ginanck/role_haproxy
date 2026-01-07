@@ -7,26 +7,31 @@
   changed_when: false
 
 - name: reload haproxy
-  block:
-    - name: Reload HAProxy service
-      ansible.builtin.service:
-        name: "haproxy"
-        state: reloaded
-  rescue:
-    - name: Get HAProxy service status
-      ansible.builtin.command:
-        cmd: journalctl -u haproxy -n 50 --no-pager
-      register: haproxy_journal
-      changed_when: false
-      ignore_errors: true
+  ansible.builtin.service:
+    name: "haproxy"
+    state: reloaded
+  register: haproxy_reload_result
+  ignore_errors: true
 
-    - name: Display HAProxy logs
-      ansible.builtin.debug:
-        msg: "{{ haproxy_journal.stdout_lines }}"
+- name: show haproxy logs on failure
+  ansible.builtin.command:
+    cmd: journalctl -u haproxy -n 50 --no-pager
+  register: haproxy_journal
+  changed_when: false
+  when: haproxy_reload_result is defined and haproxy_reload_result.failed
+  listen: reload haproxy
 
-    - name: Fail after displaying logs
-      ansible.builtin.fail:
-        msg: "HAProxy reload failed. See logs above."
+- name: display haproxy logs
+  ansible.builtin.debug:
+    msg: "{{ haproxy_journal.stdout_lines }}"
+  when: haproxy_reload_result is defined and haproxy_reload_result.failed
+  listen: reload haproxy
+
+- name: fail on reload error
+  ansible.builtin.fail:
+    msg: "HAProxy reload failed. See logs above."
+  when: haproxy_reload_result is defined and haproxy_reload_result.failed
+  listen: reload haproxy
 
 - name: restart rsyslog
   ansible.builtin.service:
