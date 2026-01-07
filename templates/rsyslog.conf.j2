@@ -6,7 +6,10 @@ module(load="imjournal" StateFile="imjournal.state")
 
 #### GLOBAL DIRECTIVES ####
 # Where to place auxiliary files
-global(workDirectory="/var/lib/rsyslog")
+global(
+  workDirectory="/var/lib/rsyslog"
+  DropPrivs.Enabled="off"
+)
 
 # Use default timestamp format
 module(load="builtin:omfile" Template="RSYSLOG_TraditionalFileFormat")
