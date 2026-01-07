@@ -16,6 +16,24 @@
     name: rsyslog
     state: present
 
+- name: Disable rsyslog privilege dropping for container compatibility
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.conf
+    regexp: '^\$PrivDropToUser'
+    line: '#$PrivDropToUser syslog'
+    state: present
+  notify:
+    - restart rsyslog
+
+- name: Disable rsyslog privilege dropping group for container compatibility
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.conf
+    regexp: '^\$PrivDropToGroup'
+    line: '#$PrivDropToGroup syslog'
+    state: present
+  notify:
+    - restart rsyslog
+
 - name: configure haproxy logging
   ansible.builtin.template:
     src: haproxy.conf.j2
