@@ -60,12 +60,10 @@ global
 {% endif %}
 
     # --- Process & thread model ---
-{% if haproxy_global.nbthread is defined and haproxy_global.nbthread != '' %}
-    {% if haproxy_global.nbthread | int == 0 %}
-    nbthread    auto
-    {% elif haproxy_global.nbthread | int > 0 %}
+    # nbthread: set to a value > 0 to pin thread count. 0 = let HAProxy decide (no directive emitted).
+    # Note: 'nbthread auto' requires HAProxy >= 2.5; older versions must use an explicit integer.
+{% if haproxy_global.nbthread is defined and haproxy_global.nbthread | int > 0 %}
     nbthread    {{ haproxy_global.nbthread }}
-    {% endif %}
 {% endif %}
 {% if haproxy_global.cpu_map is defined and haproxy_global.cpu_map != '' %}
     cpu-map     {{ haproxy_global.cpu_map }}

@@ -59,7 +59,9 @@ haproxy_global:
   # SSL ciphers/options for outgoing (server) connections
   # default_server_ciphers: ""
   # default_server_options: ""
-  # Number of threads. 0 = auto-detect CPU count (outputs 'nbthread auto').
+  # Number of threads. 0 = disabled (no directive, HAProxy uses its compiled default).
+  # Set to an explicit integer (e.g. 4) to pin thread count.
+  # 'nbthread auto' requires HAProxy >= 2.5; use an integer for 2.2/2.4.
   nbthread: 0
   # CPU affinity map, e.g. "auto:1/1-4 0-3". Empty = disabled.
   cpu_map: ""
