@@ -11,6 +11,10 @@
   ansible.builtin.include_tasks: "install-{{ ansible_os_family }}.yml"
   when: ansible_os_family in supported_os
 
+# ----------------------------------------------------------------
+# Directory setup
+# ----------------------------------------------------------------
+
 - name: Create Certificate Folder
   ansible.builtin.file:
     path: "{{ haproxy_cert_dir }}"
@@ -47,6 +51,31 @@
     mode: 0644
   when: haproxy_whitelist_file_name | length > 0
 
+# ----------------------------------------------------------------
+# Runtime API socket directory
+# ----------------------------------------------------------------
+
+- name: Create runtime API socket directory
+  ansible.builtin.file:
+    path: "{{ haproxy_stats.runtime_api.socket | dirname }}"
+    state: directory
+    owner: "{{ haproxy_global.user | default('haproxy') }}"
+    group: "{{ haproxy_global.group | default('haproxy') }}"
+    mode: "0755"
+  when: haproxy_stats.runtime_api.enabled | default(false)
+
+# ----------------------------------------------------------------
+# SSL / TLS: Let's Encrypt certificate management
+# ----------------------------------------------------------------
+
+- name: Include SSL certificate tasks
+  ansible.builtin.include_tasks: ssl.yml
+  when: haproxy_letsencrypt.enabled | default(false)
+
+# ----------------------------------------------------------------
+# Configuration rendering
+# ----------------------------------------------------------------
+
 - name: Configure haproxy using haproxy.cfg
   ansible.builtin.template:
     src: haproxy.cfg.j2
@@ -57,3 +86,10 @@
   notify:
     - validate haproxy config
     - reload haproxy
+
+# ----------------------------------------------------------------
+# Post-deploy validation
+# ----------------------------------------------------------------
+
+- name: Run pre-flight validation checks
+  ansible.builtin.include_tasks: validation.yml

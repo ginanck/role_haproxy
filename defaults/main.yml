@@ -1,6 +1,10 @@
 ---
 # defaults file for role_haproxy
 
+# ================================================================
+# PATHS & CORE
+# ================================================================
+
 haproxy_config_dir: "/etc/haproxy"
 haproxy_destination_config_path: "{{ haproxy_config_dir }}/haproxy.cfg"
 haproxy_log_file: "/var/log/haproxy.log"
@@ -12,6 +16,22 @@ haproxy_whitelist_file_name: ""
 haproxy_cert_dir: "{{ haproxy_config_dir }}/certs"
 haproxy_cert_name: ""
 
+# ================================================================
+# NETWORK
+# ================================================================
+
+# Public IP HAProxy listens on (frontends bind to this address)
+haproxy_public_ip: ""
+
+# Private IP used as source for backend connections.
+# Fixes asymmetric routing: return traffic always comes back through HAProxy.
+# When set, all backends add: source <haproxy_private_ip>
+haproxy_private_ip: ""
+
+# ================================================================
+# GLOBAL TUNING
+# ================================================================
+
 haproxy_global:
   log:
     # Basic logging to syslog on localhost
@@ -21,7 +41,7 @@ haproxy_global:
     # Syslog levels: emerg, alert, crit, err, warning, notice, info, debug
     # - address: 127.0.0.1
     #   facility: local0
-    #   min_level: info      # Log everything from info and above (info, notice, warning, err, crit, alert, emerg)
+    #   min_level: info      # Log everything from info and above
     #   max_level: notice    # Or specify a range from min_level to max_level
   tune_ssl_default_dh_param: 2048
   chroot: /var/lib/haproxy
@@ -32,6 +52,33 @@ haproxy_global:
   daemon: true
   stats_socket:
     - path: /var/lib/haproxy/stats
+  # Extended tuning (new fields — all optional, safe defaults)
+  # SSL ciphers/options for incoming (bind) connections
+  # default_bind_ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+  # default_bind_options: "no-sslv3 no-tlsv10 no-tlsv11"
+  # SSL ciphers/options for outgoing (server) connections
+  # default_server_ciphers: ""
+  # default_server_options: ""
+  # Number of threads. 0 = disabled (no directive, HAProxy uses its compiled default).
+  # Set to an explicit integer (e.g. 4) to pin thread count.
+  # 'nbthread auto' requires HAProxy >= 2.5; use an integer for 2.2/2.4.
+  nbthread: 0
+  # CPU affinity map, e.g. "auto:1/1-4 0-3". Empty = disabled.
+  cpu_map: ""
+  # Fine-grained tuning parameters
+  tune:
+    ssl_cachesize: 20000
+    ssl_lifetime: 300
+    bufsize: 16384
+    maxrewrite: 1024
+  # Spread health checks over the interval (0 = disabled)
+  spread_checks: 0
+  # Suppress informational messages at startup
+  quiet: false
+
+# ================================================================
+# DEFAULTS
+# ================================================================
 
 haproxy_defaults:
   mode: http
@@ -62,32 +109,45 @@ haproxy_defaults:
       value: 10s
   maxconn: 3000
 
-haproxy_listen:
-  - name: http_health_check
-    mode: http
-    monitor_uri: /haproxy
-    bind:
-      - address: 127.0.0.1
-        port: 8000
-    option:
-      - name: dontlognull
-      - name: httpchk
-  - name: stats
-    mode: http
-    bind:
-      - address: 127.0.0.1
-        port: 9000
-    stats:
-      enable: true
-      hide_version: true
-      scope:
-        - .
-      uri: /admin?stats
-      realm: HAProxy\ Statistics
-      auth:
-        - login: admin-user
-          password: password123
-      refresh: 5s
+# ================================================================
+# FRONTENDS
+# ================================================================
+#
+# Each frontend entry supports all existing keys PLUS new keys:
+#
+#   ssl: true/false                  — SSL termination on this bind
+#   cert: /path/to/pem               — Single PEM cert (new key, alias for cert_path)
+#   crt_list: /path/to/crt-list.txt  — Multi-domain SNI cert list
+#   http2: true/false                — Enable ALPN h2,http/1.1
+#   verify: required                 — mTLS: verify client certificate
+#   ca_file: /path/to/ca.pem         — mTLS: CA bundle
+#   ciphers: "ECDHE:..."             — Per-bind cipher override
+#   options: "no-sslv3 ..."          — Per-bind SSL options override
+#   maxconn: N                       — Frontend connection limit
+#   tcp_inspect_delay: "5s"          — tcp-request inspect-delay (mode: tcp)
+#   routing_rules: []                — ACL-based routing (see examples below)
+#   rate_limit_table: table_name     — Reference a haproxy_stick_tables entry
+#
+# routing_rules example:
+#   routing_rules:
+#     - name: is_gitea
+#       conditions:
+#         - type: host          # host / path_beg / path_end / path_reg /
+#           value: "git.x.com"  # method / header / src_ip / user_agent / ssl_sni
+#       backend: gitea_back
+#     - name: block_bots
+#       conditions:
+#         - type: user_agent
+#           value: "curl"
+#       action: reject          # reject instead of routing to backend
+#     - name: multi_cond
+#       conditions:
+#         - type: path_beg
+#           value: "/api"
+#         - type: method
+#           value: "POST"
+#       operator: and           # and (default) / or
+#       backend: api_back
 
 haproxy_frontend:
   - name: main-http
@@ -144,6 +204,57 @@ haproxy_frontend:
     use_backend:
       - name: app
         condition: '!{ ssl_fc }'
+
+# ================================================================
+# BACKENDS
+# ================================================================
+#
+# Each backend entry supports all existing keys PLUS new keys:
+#
+#   source_ip: ""              — Override source IP for this backend only.
+#                                Defaults to haproxy_private_ip when that is set.
+#   healthcheck:               — Extended health check block
+#     type: http               #   tcp or http
+#     method: GET
+#     path: /health
+#     expect: "status 200"
+#     interval: 5s
+#     rise: 2
+#     fall: 3
+#   forwardfor: true           — Add option forwardfor
+#   strip_forwarded_for: true  — Delete incoming X-Forwarded-For before injecting
+#   request_headers: []        — Structured request header manipulation
+#     - action: set            #   set / add / del
+#       name: X-Real-IP
+#       value: "%[src]"
+#   response_headers: []       — Same structure for response headers
+#   path_rewrite:              — Rewrite request path/URI
+#     type: replace-path       #   replace-path / replace-uri / set-path
+#     pattern: "^/old(.*)"
+#     replacement: "/new\\1"
+#   session_persistence:
+#     enabled: false
+#     cookie_name: SERVERID
+#     mode: insert             # insert / rewrite / prefix
+#     options: "nocache"       # extra cookie options
+#   proxy_protocol: none       — none / v1 / v2  (applied to all servers unless overridden)
+#   tcp_keepalive: false       — Add option tcpka
+#
+# Per-server structured fields (backward-compatible with existing 'params' string):
+#   server:
+#     - name: web1
+#       address: 10.0.0.1
+#       port: 8080
+#       check: true            # true/false
+#       weight: 10
+#       backup: false
+#       maxconn: 100
+#       slowstart: 60s
+#       send_proxy: v2         # v1 / v2 / none  (overrides backend proxy_protocol)
+#       inter: 5s              # health check interval
+#       rise: 2
+#       fall: 3
+#       params: "check"        # raw params string (backward compat, takes precedence)
 
 haproxy_backend:
   - name: app
@@ -206,3 +317,180 @@ haproxy_backend:
         table: "app"
       - type: "on"
         pattern: req.cook(JSESSIONID)
+
+# ================================================================
+# LISTEN
+# ================================================================
+
+haproxy_listen:
+  - name: http_health_check
+    mode: http
+    monitor_uri: /haproxy
+    bind:
+      - address: 127.0.0.1
+        port: 8000
+    option:
+      - name: dontlognull
+      - name: httpchk
+  - name: stats
+    mode: http
+    bind:
+      - address: 127.0.0.1
+        port: 9000
+    stats:
+      enable: true
+      hide_version: true
+      scope:
+        - .
+      uri: /admin?stats
+      realm: HAProxy\ Statistics
+      auth:
+        - login: admin-user
+          password: password123
+      refresh: 5s
+
+# ================================================================
+# SSL / TLS
+# ================================================================
+
+haproxy_ssl:
+  # Directory where HAProxy PEM files are stored
+  cert_dir: "{{ haproxy_config_dir }}/certs"
+  # Global SSL cipher string for bind (empty = HAProxy default)
+  default_bind_ciphers: ""
+  # Global SSL options string for bind (empty = HAProxy default)
+  default_bind_options: ""
+  # SSL session cache size (number of entries)
+  session_cache_size: 20000
+  # Enable OCSP stapling in global section
+  ocsp_stapling: false
+
+haproxy_letsencrypt:
+  # Set to true to enable Let's Encrypt certificate management
+  enabled: false
+  # List of domain names for which to combine fullchain+privkey → HAProxy PEM
+  domains: []
+  # Path where certbot stores live certificates
+  cert_dir: /etc/letsencrypt/live
+  # Install a renewal deploy-hook that recombines certs and reloads HAProxy
+  deploy_hook: true
+
+# ================================================================
+# RATE LIMITING
+# ================================================================
+
+# Define global stick tables used for rate limiting.
+# These are injected into frontends referenced by haproxy_rate_limits.
+haproxy_stick_tables: []
+# Example:
+# haproxy_stick_tables:
+#   - name: conn_rate_table
+#     type: ip
+#     size: 100k
+#     expire: 30s
+#     store:
+#       - conn_rate(30s)
+#       - http_req_rate(30s)
+#       - conn_cur
+
+# Rate limit rules referencing stick tables above.
+# apply_to: "frontend" injects into ALL frontends.
+# apply_to: "my_frontend_name" injects into that specific frontend only.
+haproxy_rate_limits: []
+# Example:
+# haproxy_rate_limits:
+#   - table: conn_rate_table
+#     track: src                           # HAProxy track-sc expression
+#     condition: "{ sc_http_req_rate(0) gt 100 }"   # HAProxy ACL expression
+#     action: reject                       # reject / tarpit / deny
+#     apply_to: frontend                   # frontend (all) or a frontend name
+
+# ================================================================
+# SECURITY
+# ================================================================
+
+haproxy_security:
+  ip_whitelist:
+    enabled: false
+    # List of IPs/CIDRs to allow
+    ips: []
+    # List of frontend names to apply this to; empty = all frontends
+    apply_to: []
+  ip_blacklist:
+    enabled: false
+    # List of IPs/CIDRs to block
+    ips: []
+    # List of frontend names to apply this to; empty = all frontends
+    apply_to: []
+  request_body_size_limit:
+    enabled: false
+    # Maximum allowed request body in bytes
+    max_bytes: 10485760
+  # Remove the Server: header from all HTTP responses
+  hide_server_header: false
+
+# ================================================================
+# LOGGING
+# ================================================================
+
+haproxy_logging:
+  # Syslog destination: /dev/log for local socket, or "1.2.3.4:514" for UDP
+  destination: /dev/log
+  facility: local0
+  level: info
+  # List of request header names to capture in the log
+  capture_request_headers: []
+  # List of response header names to capture in the log
+  capture_response_headers: []
+  # HAProxy log-format string. Empty string = use HAProxy default format.
+  custom_log_format: ""
+  # Per-backend log level override: { backend_name: "warning" }
+  per_backend_log_level: {}
+
+# ================================================================
+# STATS & MONITORING
+# ================================================================
+
+haproxy_stats:
+  # Enable a dedicated stats frontend on bind_ip:port
+  enabled: false
+  bind_ip: 127.0.0.1
+  port: 8404
+  uri: /stats
+  refresh: 10s
+  auth:
+    enabled: false
+    username: admin
+    password: ""
+  prometheus:
+    # Enable Prometheus metrics endpoint (requires HAProxy 2.0+ prometheus exporter)
+    enabled: false
+    uri: /metrics
+  runtime_api:
+    # Enable HAProxy runtime API socket (for live reloads, server manipulation)
+    enabled: false
+    socket: /var/run/haproxy/admin.sock
+    level: admin   # user / operator / admin
+
+# ================================================================
+# HIGH AVAILABILITY
+# ================================================================
+
+# HAProxy peer synchronization for stick table replication.
+# Supports both new format (peers + name) and old format (list + node) for
+# backward compatibility.
+haproxy_peers:
+  enabled: false
+  name: haproxy_cluster
+  peers: []
+# Example:
+# haproxy_peers:
+#   enabled: true
+#   name: haproxy_cluster
+#   peers:
+#     - name: haproxy1
+#       address: 10.0.0.1
+#       port: 1024
+#     - name: haproxy2
+#       address: 10.0.0.2
+#       port: 1024

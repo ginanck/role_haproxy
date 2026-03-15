@@ -1,3 +1,7 @@
+{# ================================================================ #}
+{# EXISTING MACROS (kept verbatim — do not remove or rename)      #}
+{# ================================================================ #}
+
 {%- macro add_stickiness(item) %}
     {% if item.stick is defined and item.stick_on is undefined and item.stick_store_response is undefined %}
         {% for rule in item.stick %}
@@ -171,18 +175,6 @@
     {% endif %}
 {%- endmacro %}
 
-{%- macro add_servers(item) %}
-    {% if item.server is defined %}
-        {% for server in item.server %}
-            {% if server.port is defined %}
-    server      {{ server.name }} {{ server.address }}:{{ server.port }} {{ server.params | default("") }}
-            {% else %}
-    server      {{ server.name }} {{ server.address}} {{ server.params | default("") }}
-            {% endif %}
-        {% endfor %}
-    {% endif %}
-{%- endmacro %}
-
 {%- macro add_sticks(item) %}
     {% if item.stick_store_response is defined %}
         {% for item in item.stick_store_response %}
@@ -194,20 +186,6 @@
     stick       on {{ item.pattern }}{{ " table " ~ item.table if item.table is defined else "" }}{{ " if " ~ item.condition if item.condition is defined else "" }}
         {% endfor %}
     {% endif %}
-{%- endmacro %}
-
-{%- macro add_binds(item) %}
-    {% for socket in item.bind %}
-        {% if socket.path is defined %}
-    bind        {{ socket.path }}
-        {% elif socket.address is defined and socket.port is defined %}
-            {% if socket.cert_path is defined %}
-    bind        {{ socket.address }}:{{ socket.port }} ssl crt {{ socket.cert_path }}
-            {% else %}
-    bind        {{ socket.address }}:{{ socket.port }}
-            {% endif %}
-        {% endif %}
-    {% endfor %}
 {%- endmacro %}
 
 {%- macro add_stats(item) %}
@@ -248,6 +226,409 @@
     stats       realm {{ item.stats.realm }}
                 {% endif %}
             {% endif %}
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{# ================================================================ #}
+{# EXTENDED MACROS (new — extend existing capabilities)            #}
+{# ================================================================ #}
+
+{# -----------------------------------------------------------------
+   add_binds — extended to support SSL termination, HTTP/2, mTLS.
+   Backward-compatible: existing cert_path key still works.
+   New keys per bind entry:
+     ssl: true/false           — enable SSL termination
+     cert: /path/to/pem        — PEM file (alias for cert_path)
+     crt_list: /path/to/list   — multi-domain SNI cert list
+     http2: true/false         — add alpn h2,http/1.1
+     ciphers: "..."            — per-bind cipher override
+     options: "no-sslv3 ..."   — per-bind SSL options
+     verify: required          — mTLS client verification
+     ca_file: /path/to/ca.pem  — mTLS CA bundle
+----------------------------------------------------------------- #}
+{%- macro add_binds(item) %}
+    {% for socket in item.bind %}
+        {% if socket.path is defined %}
+    bind        {{ socket.path }}
+        {% elif socket.address is defined and socket.port is defined %}
+            {% set _ssl = socket.ssl | default(false) or socket.cert_path is defined or socket.cert is defined or socket.crt_list is defined %}
+            {% if _ssl %}
+                {% if socket.crt_list is defined %}
+    bind        {{ socket.address }}:{{ socket.port }} ssl crt-list {{ socket.crt_list }}{{ " alpn h2,http/1.1" if socket.http2 | default(false) else "" }}{{ " ciphers " ~ socket.ciphers if socket.ciphers is defined and socket.ciphers != "" else "" }}{{ " " ~ socket.options if socket.options is defined and socket.options != "" else "" }}{{ " verify " ~ socket.verify if socket.verify is defined and socket.verify != "" else "" }}{{ " ca-file " ~ socket.ca_file if socket.ca_file is defined and socket.ca_file != "" else "" }}
+                {% elif socket.cert is defined %}
+    bind        {{ socket.address }}:{{ socket.port }} ssl crt {{ socket.cert }}{{ " alpn h2,http/1.1" if socket.http2 | default(false) else "" }}{{ " ciphers " ~ socket.ciphers if socket.ciphers is defined and socket.ciphers != "" else "" }}{{ " " ~ socket.options if socket.options is defined and socket.options != "" else "" }}{{ " verify " ~ socket.verify if socket.verify is defined and socket.verify != "" else "" }}{{ " ca-file " ~ socket.ca_file if socket.ca_file is defined and socket.ca_file != "" else "" }}
+                {% elif socket.cert_path is defined %}
+    bind        {{ socket.address }}:{{ socket.port }} ssl crt {{ socket.cert_path }}{{ " alpn h2,http/1.1" if socket.http2 | default(false) else "" }}{{ " ciphers " ~ socket.ciphers if socket.ciphers is defined and socket.ciphers != "" else "" }}{{ " " ~ socket.options if socket.options is defined and socket.options != "" else "" }}{{ " verify " ~ socket.verify if socket.verify is defined and socket.verify != "" else "" }}{{ " ca-file " ~ socket.ca_file if socket.ca_file is defined and socket.ca_file != "" else "" }}
+                {% else %}
+    bind        {{ socket.address }}:{{ socket.port }} ssl{{ " alpn h2,http/1.1" if socket.http2 | default(false) else "" }}{{ " ciphers " ~ socket.ciphers if socket.ciphers is defined and socket.ciphers != "" else "" }}{{ " " ~ socket.options if socket.options is defined and socket.options != "" else "" }}{{ " verify " ~ socket.verify if socket.verify is defined and socket.verify != "" else "" }}{{ " ca-file " ~ socket.ca_file if socket.ca_file is defined and socket.ca_file != "" else "" }}
+                {% endif %}
+            {% else %}
+    bind        {{ socket.address }}:{{ socket.port }}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_servers — extended to support structured server params.
+   Backward-compatible: existing 'params' string key still works and
+   takes precedence when present.
+   New keys per server entry:
+     check: true/false         — enable health checks
+     weight: N
+     backup: true/false
+     maxconn: N
+     slowstart: "60s"
+     send_proxy: v1/v2/none    — proxy protocol version to send
+     inter: "5s"               — health check interval
+     rise: N                   — health check rise threshold
+     fall: N                   — health check fall threshold
+----------------------------------------------------------------- #}
+{%- macro add_servers(item) %}
+    {% if item.server is defined %}
+        {% for server in item.server %}
+            {% if server.port is defined %}
+                {% if server.params is defined %}
+    server      {{ server.name }} {{ server.address }}:{{ server.port }} {{ server.params }}
+                {% else %}
+    server      {{ server.name }} {{ server.address }}:{{ server.port }}{{ " check" if server.check | default(false) else "" }}{{ " weight " ~ server.weight if server.weight is defined else "" }}{{ " backup" if server.backup | default(false) else "" }}{{ " maxconn " ~ server.maxconn if server.maxconn is defined else "" }}{{ " slowstart " ~ server.slowstart if server.slowstart is defined else "" }}{{ " inter " ~ server.inter if server.inter is defined else "" }}{{ " rise " ~ server.rise if server.rise is defined else "" }}{{ " fall " ~ server.fall if server.fall is defined else "" }}{{ " send-proxy-v2" if server.send_proxy is defined and server.send_proxy == 'v2' else "" }}{{ " send-proxy" if server.send_proxy is defined and server.send_proxy == 'v1' else "" }}
+                {% endif %}
+            {% else %}
+    server      {{ server.name }} {{ server.address }} {{ server.params | default("") }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_healthcheck — extended health check block.
+   Generates option httpchk + http-check commands from a structured
+   'healthcheck' key:
+     type: http | tcp
+     method: GET
+     path: /health
+     expect: "status 200"
+     interval: 5s
+     rise: 2
+     fall: 3
+----------------------------------------------------------------- #}
+{%- macro add_healthcheck(item) %}
+    {% if item.healthcheck is defined %}
+        {% if item.healthcheck.type | default('tcp') == 'http' %}
+    option      httpchk {{ item.healthcheck.method | default('GET') }} {{ item.healthcheck.path | default('/') }}
+            {% if item.healthcheck.expect is defined %}
+    http-check  expect {{ item.healthcheck.expect }}
+            {% endif %}
+        {% else %}
+    option      tcp-check
+        {% endif %}
+        {% if item.healthcheck.interval is defined or item.healthcheck.rise is defined or item.healthcheck.fall is defined %}
+    default-server{{ " inter " ~ item.healthcheck.interval if item.healthcheck.interval is defined else "" }}{{ " rise " ~ item.healthcheck.rise if item.healthcheck.rise is defined else "" }}{{ " fall " ~ item.healthcheck.fall if item.healthcheck.fall is defined else "" }}
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_source_ip — backend source IP binding for asymmetric routing.
+   Priority: item.source_ip → haproxy_private_ip (global).
+   Outputs: source <ip>
+----------------------------------------------------------------- #}
+{%- macro add_source_ip(item) %}
+    {% set _src = item.source_ip | default(haproxy_private_ip | default('')) %}
+    {% if _src != '' %}
+    source      {{ _src }}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_forwardfor — forwardfor option + optional header stripping.
+   Keys:
+     forwardfor: true/false
+     strip_forwarded_for: true/false   — delete client-supplied header first
+----------------------------------------------------------------- #}
+{%- macro add_forwardfor(item) %}
+    {% if item.forwardfor | default(false) %}
+        {% if item.strip_forwarded_for | default(false) %}
+    http-request del-header X-Forwarded-For
+        {% endif %}
+    option      forwardfor
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_request_response_headers — structured header manipulation.
+   Keys:
+     request_headers:
+       - action: set | add | del
+         name: Header-Name
+         value: "value"          (not required for action: del)
+         condition: "acl_name"   (optional)
+     response_headers: (same structure)
+----------------------------------------------------------------- #}
+{%- macro add_request_response_headers(item) %}
+    {% if item.request_headers is defined %}
+        {% for hdr in item.request_headers %}
+            {% if hdr.action == 'del' %}
+                {% if hdr.condition is defined %}
+    http-request del-header {{ hdr.name }} if {{ hdr.condition }}
+                {% else %}
+    http-request del-header {{ hdr.name }}
+                {% endif %}
+            {% else %}
+                {% if hdr.condition is defined %}
+    http-request {{ hdr.action }}-header {{ hdr.name }} {{ hdr.value | default('') }} if {{ hdr.condition }}
+                {% else %}
+    http-request {{ hdr.action }}-header {{ hdr.name }} {{ hdr.value | default('') }}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if item.response_headers is defined %}
+        {% for hdr in item.response_headers %}
+            {% if hdr.action == 'del' %}
+                {% if hdr.condition is defined %}
+    http-response del-header {{ hdr.name }} if {{ hdr.condition }}
+                {% else %}
+    http-response del-header {{ hdr.name }}
+                {% endif %}
+            {% else %}
+                {% if hdr.condition is defined %}
+    http-response {{ hdr.action }}-header {{ hdr.name }} {{ hdr.value | default('') }} if {{ hdr.condition }}
+                {% else %}
+    http-response {{ hdr.action }}-header {{ hdr.name }} {{ hdr.value | default('') }}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_path_rewrite — request path/URI rewriting.
+   Keys:
+     path_rewrite:
+       type: replace-path | replace-uri | set-path
+       pattern: "^/old(.*)"
+       replacement: "/new\\1"
+       condition: "acl_name"  (optional)
+----------------------------------------------------------------- #}
+{%- macro add_path_rewrite(item) %}
+    {% if item.path_rewrite is defined %}
+        {% if item.path_rewrite.type == 'set-path' %}
+            {% if item.path_rewrite.condition is defined %}
+    http-request set-path {{ item.path_rewrite.replacement }} if {{ item.path_rewrite.condition }}
+            {% else %}
+    http-request set-path {{ item.path_rewrite.replacement }}
+            {% endif %}
+        {% else %}
+            {% if item.path_rewrite.condition is defined %}
+    http-request {{ item.path_rewrite.type }} {{ item.path_rewrite.pattern }} {{ item.path_rewrite.replacement }} if {{ item.path_rewrite.condition }}
+            {% else %}
+    http-request {{ item.path_rewrite.type }} {{ item.path_rewrite.pattern }} {{ item.path_rewrite.replacement }}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_session_persistence — cookie-based session persistence.
+   Keys:
+     session_persistence:
+       enabled: true
+       cookie_name: SERVERID
+       mode: insert | rewrite | prefix
+       options: "nocache"   (extra cookie options string)
+----------------------------------------------------------------- #}
+{%- macro add_session_persistence(item) %}
+    {% if item.session_persistence is defined and item.session_persistence.enabled | default(false) %}
+    cookie      {{ item.session_persistence.cookie_name | default('SERVERID') }} {{ item.session_persistence.mode | default('insert') }}{{ " " ~ item.session_persistence.options if item.session_persistence.options is defined and item.session_persistence.options != "" else "" }}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_proxy_protocol — backend-level proxy protocol for all servers.
+   Overridden per-server via server.send_proxy key.
+   Key: proxy_protocol: none | v1 | v2
+----------------------------------------------------------------- #}
+{%- macro add_proxy_protocol(item) %}
+    {% if item.proxy_protocol is defined and item.proxy_protocol != 'none' and item.proxy_protocol != '' %}
+        {% if item.proxy_protocol == 'v2' %}
+    default-server send-proxy-v2
+        {% elif item.proxy_protocol == 'v1' %}
+    default-server send-proxy
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_tcp_keepalive — TCP keepalive for a backend.
+   Key: tcp_keepalive: true
+----------------------------------------------------------------- #}
+{%- macro add_tcp_keepalive(item) %}
+    {% if item.tcp_keepalive | default(false) %}
+    option      tcpka
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_tcp_inspect_delay — TCP inspect delay for a frontend.
+   Key: tcp_inspect_delay: "5s"
+----------------------------------------------------------------- #}
+{%- macro add_tcp_inspect_delay(item) %}
+    {% if item.tcp_inspect_delay is defined and item.tcp_inspect_delay != '' %}
+    tcp-request inspect-delay {{ item.tcp_inspect_delay }}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_routing_rules — ACL-based backend routing from a structured
+   routing_rules list. Generates acl lines + use_backend or deny.
+
+   Supported condition types:
+     host        → hdr(host) -i <value>
+     path_beg    → path_beg <value>
+     path_end    → path_end <value>
+     path_reg    → path_reg <value>
+     method      → method <value>
+     src_ip      → src <value>
+     user_agent  → hdr(user-agent) -i <value>
+     ssl_sni     → req_ssl_sni -i <value>
+     header      → hdr(<header_name>) <value>  (requires hdr.header_name)
+
+   operator: and (default) | or
+   action: backend (default) | reject
+----------------------------------------------------------------- #}
+{%- macro add_routing_rules(item) %}
+    {% if item.routing_rules is defined %}
+        {% for rule in item.routing_rules %}
+            {# Generate one ACL per condition #}
+            {% for cond in rule.conditions %}
+                {% set acl_name = rule.name ~ "_" ~ loop.index %}
+                {% if cond.type == 'host' %}
+    acl         {{ acl_name }} hdr(host) -i {{ cond.value }}
+                {% elif cond.type == 'path_beg' %}
+    acl         {{ acl_name }} path_beg {{ cond.value }}
+                {% elif cond.type == 'path_end' %}
+    acl         {{ acl_name }} path_end {{ cond.value }}
+                {% elif cond.type == 'path_reg' %}
+    acl         {{ acl_name }} path_reg {{ cond.value }}
+                {% elif cond.type == 'method' %}
+    acl         {{ acl_name }} method {{ cond.value }}
+                {% elif cond.type == 'src_ip' %}
+    acl         {{ acl_name }} src {{ cond.value }}
+                {% elif cond.type == 'user_agent' %}
+    acl         {{ acl_name }} hdr(user-agent) -i {{ cond.value }}
+                {% elif cond.type == 'ssl_sni' %}
+    acl         {{ acl_name }} req_ssl_sni -i {{ cond.value }}
+                {% elif cond.type == 'header' %}
+    acl         {{ acl_name }} hdr({{ cond.header_name }}) {{ cond.value }}
+                {% endif %}
+            {% endfor %}
+            {# Build ACL combination expression #}
+            {% set acl_refs = [] %}
+            {% for cond in rule.conditions %}
+                {% set _ = acl_refs.append(rule.name ~ "_" ~ loop.index) %}
+            {% endfor %}
+            {% if rule.operator | default('and') == 'or' %}
+                {% set acl_expr = acl_refs | join(' or ') %}
+            {% else %}
+                {% set acl_expr = acl_refs | join(' ') %}
+            {% endif %}
+            {# Emit action #}
+            {% if rule.action | default('backend') == 'reject' %}
+    http-request deny if {{ acl_expr }}
+            {% else %}
+    use_backend {{ rule.backend }} if {{ acl_expr }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_rate_limiting — inject stick table + tracking + deny rule
+   for frontends referenced by haproxy_rate_limits.
+
+   Called per-frontend with (frontend_item, rate_limits, stick_tables).
+   Matches by apply_to == 'frontend' (all) or apply_to == frontend name.
+----------------------------------------------------------------- #}
+{%- macro add_rate_limiting(item, rate_limits, stick_tables) %}
+    {% if rate_limits is defined and stick_tables is defined %}
+        {% for limit in rate_limits %}
+            {% if limit.apply_to == 'frontend' or limit.apply_to == item.name %}
+                {% for table in stick_tables %}
+                    {% if table.name == limit.table %}
+    stick-table type {{ table.type }} size {{ table.size }}{{ " expire " ~ table.expire if table.expire is defined else "" }}{% if table.store is defined %} store {{ table.store | join(",") }}{% endif %}
+
+    tcp-request connection track-sc0 {{ limit.track | default('src') }}
+                        {% if limit.action | default('reject') == 'reject' %}
+    tcp-request connection reject if {{ limit.condition }}
+                        {% elif limit.action == 'tarpit' %}
+    tcp-request connection tarpit if {{ limit.condition }}
+                        {% elif limit.action == 'deny' %}
+    http-request deny if {{ limit.condition }}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_security_rules — inject IP whitelist/blacklist rules into a
+   frontend section based on haproxy_security configuration.
+----------------------------------------------------------------- #}
+{%- macro add_security_rules(item, security) %}
+    {% if security is defined %}
+        {# IP Blacklist #}
+        {% if security.ip_blacklist.enabled | default(false) %}
+            {% set _apply = security.ip_blacklist.apply_to | default([]) %}
+            {% if _apply | length == 0 or item.name in _apply %}
+                {% if security.ip_blacklist.ips | length > 0 %}
+    acl         acl_ip_blacklist src {{ security.ip_blacklist.ips | join(' ') }}
+    http-request deny if acl_ip_blacklist
+                {% endif %}
+            {% endif %}
+        {% endif %}
+        {# IP Whitelist #}
+        {% if security.ip_whitelist.enabled | default(false) %}
+            {% set _apply = security.ip_whitelist.apply_to | default([]) %}
+            {% if _apply | length == 0 or item.name in _apply %}
+                {% if security.ip_whitelist.ips | length > 0 %}
+    acl         acl_ip_whitelist src {{ security.ip_whitelist.ips | join(' ') }}
+    http-request deny if !acl_ip_whitelist
+                {% endif %}
+            {% endif %}
+        {% endif %}
+        {# Request body size limit #}
+        {% if security.request_body_size_limit.enabled | default(false) %}
+    option      http-buffer-request
+    http-request deny if { req.body_size gt {{ security.request_body_size_limit.max_bytes | default(10485760) }} }
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_maxconn — per-frontend or per-backend maxconn.
+   Key: maxconn: N
+   (Distinct from defaults maxconn; emits "maxconn N" in the section.)
+----------------------------------------------------------------- #}
+{%- macro add_maxconn(item) %}
+    {% if item.maxconn is defined %}
+    maxconn     {{ item.maxconn }}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_redispatch — backend redispatch option.
+   Key: redispatch: true | false | interval (e.g. "1")
+----------------------------------------------------------------- #}
+{%- macro add_redispatch(item) %}
+    {% if item.redispatch is defined and item.redispatch %}
+        {% if item.redispatch is string %}
+    option      redispatch {{ item.redispatch }}
+        {% else %}
+    option      redispatch
         {% endif %}
     {% endif %}
 {%- endmacro %}

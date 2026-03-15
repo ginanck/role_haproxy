@@ -1,0 +1,80 @@
+---
+# tasks/validation.yml - Pre-flight validation checks
+
+- name: Assert haproxy_global is defined and sane
+  ansible.builtin.assert:
+    that:
+      - haproxy_global is defined
+      - haproxy_global.maxconn is defined
+      - haproxy_global.maxconn | int > 0
+      - haproxy_global.chroot is defined
+      - haproxy_global.pidfile is defined
+    fail_msg: "haproxy_global.maxconn, chroot, and pidfile must be defined and maxconn must be > 0"
+
+- name: Assert haproxy_defaults mode is valid
+  ansible.builtin.assert:
+    that:
+      - haproxy_defaults.mode in ['http', 'tcp']
+    fail_msg: "haproxy_defaults.mode must be 'http' or 'tcp', got: {{ haproxy_defaults.mode }}"
+
+- name: Assert frontend modes are valid
+  ansible.builtin.assert:
+    that:
+      - item.mode in ['http', 'tcp']
+    fail_msg: "Frontend '{{ item.name }}' mode must be 'http' or 'tcp', got: {{ item.mode }}"
+  loop: "{{ haproxy_frontend | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert backend modes are valid
+  ansible.builtin.assert:
+    that:
+      - item.mode in ['http', 'tcp']
+    fail_msg: "Backend '{{ item.name }}' mode must be 'http' or 'tcp', got: {{ item.mode }}"
+  loop: "{{ haproxy_backend | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert Let's Encrypt config when enabled
+  ansible.builtin.assert:
+    that:
+      - haproxy_letsencrypt.domains | length > 0
+      - haproxy_letsencrypt.cert_dir | length > 0
+      - haproxy_ssl.cert_dir | length > 0
+    fail_msg: >
+      haproxy_letsencrypt.domains, haproxy_letsencrypt.cert_dir, and
+      haproxy_ssl.cert_dir must all be set when haproxy_letsencrypt.enabled is true
+  when: haproxy_letsencrypt.enabled | default(false)
+
+- name: Assert stats auth credentials when stats + auth enabled
+  ansible.builtin.assert:
+    that:
+      - haproxy_stats.auth.username | length > 0
+      - haproxy_stats.auth.password | length > 0
+    fail_msg: "haproxy_stats.auth.username and haproxy_stats.auth.password must be set when stats auth is enabled"
+  when:
+    - haproxy_stats.enabled | default(false)
+    - haproxy_stats.auth.enabled | default(false)
+
+- name: Assert peers list is non-empty when HA peers enabled
+  ansible.builtin.assert:
+    that:
+      - (haproxy_peers.peers | default(haproxy_peers.list | default([]))) | length > 0
+    fail_msg: "haproxy_peers.peers must contain at least one peer when haproxy_peers.enabled is true"
+  when: haproxy_peers.enabled | default(false)
+
+- name: Assert rate limit tables reference existing stick tables
+  ansible.builtin.assert:
+    that:
+      - item.table in (haproxy_stick_tables | default([]) | map(attribute='name') | list)
+    fail_msg: "haproxy_rate_limits entry references table '{{ item.table }}' which is not defined in haproxy_stick_tables"
+  loop: "{{ haproxy_rate_limits | default([]) }}"
+  loop_control:
+    label: "{{ item.table }}"
+
+- name: Validate HAProxy configuration syntax
+  ansible.builtin.command:
+    cmd: "haproxy -c -f {{ haproxy_destination_config_path }}"
+  changed_when: false
+  register: haproxy_config_syntax_check
+  failed_when: haproxy_config_syntax_check.rc != 0

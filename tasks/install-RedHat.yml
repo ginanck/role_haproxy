@@ -1,7 +1,7 @@
 ---
 
 - name: Install HAProxy from YUM Repository
-  ansible.builtin.yum:
+  ansible.builtin.dnf:
     name: haproxy
     state: present
     update_cache: yes

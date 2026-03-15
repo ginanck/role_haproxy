@@ -1,25 +1,81 @@
 #jinja2: lstrip_blocks: "True", trim_blocks: "True"
 {% import "macros.j2" as macro %}
+# =============================================================================
+# HAProxy configuration — managed by Ansible (role_haproxy)
+# Do not edit manually.
+# =============================================================================
+
+# =============================================================================
+# GLOBAL
+# =============================================================================
 
 global
 {% for item in haproxy_global.log %}
     log         {{ item.address }} {{ item.facility }}{{ " " ~ item.max_level if item.max_level is defined else "" }}{{ " " ~ item.min_level if item.min_level is defined else "" }}
 {% endfor %}
+
+    # --- SSL tuning ---
 {% if haproxy_global.tune_ssl_default_dh_param is defined %}
     tune.ssl.default-dh-param {{ haproxy_global.tune_ssl_default_dh_param }}
+{% endif %}
+{% if haproxy_ssl.default_bind_ciphers is defined and haproxy_ssl.default_bind_ciphers != '' and haproxy_global.default_bind_ciphers is not defined %}
+    ssl-default-bind-ciphers {{ haproxy_ssl.default_bind_ciphers }}
 {% endif %}
 {% if haproxy_global.default_bind_ciphers is defined %}
     ssl-default-bind-ciphers {{ haproxy_global.default_bind_ciphers }}
 {% endif %}
-{% if haproxy_global.default_server_ciphers is defined %}
-    ssl-default-server-ciphers {{ haproxy_global.default_server_ciphers }}
+{% if haproxy_ssl.default_bind_options is defined and haproxy_ssl.default_bind_options != '' and haproxy_global.default_bind_options is not defined %}
+    ssl-default-bind-options {{ haproxy_ssl.default_bind_options }}
 {% endif %}
 {% if haproxy_global.default_bind_options is defined %}
     ssl-default-bind-options {{ haproxy_global.default_bind_options }}
 {% endif %}
+{% if haproxy_global.default_server_ciphers is defined %}
+    ssl-default-server-ciphers {{ haproxy_global.default_server_ciphers }}
+{% endif %}
 {% if haproxy_global.default_server_options is defined %}
     ssl-default-server-options {{ haproxy_global.default_server_options }}
 {% endif %}
+{% if haproxy_ssl.session_cache_size is defined and haproxy_ssl.session_cache_size | int > 0 %}
+    tune.ssl.cachesize {{ haproxy_ssl.session_cache_size }}
+{% endif %}
+{% if haproxy_ssl.ocsp_stapling | default(false) %}
+    tune.ssl.ocsp-update.onerror continue
+{% endif %}
+
+    # --- Fine-grained tuning ---
+{% if haproxy_global.tune is defined %}
+    {% if haproxy_global.tune.ssl_cachesize is defined and haproxy_ssl.session_cache_size is not defined %}
+    tune.ssl.cachesize {{ haproxy_global.tune.ssl_cachesize }}
+    {% endif %}
+    {% if haproxy_global.tune.ssl_lifetime is defined %}
+    tune.ssl.lifetime {{ haproxy_global.tune.ssl_lifetime }}
+    {% endif %}
+    {% if haproxy_global.tune.bufsize is defined %}
+    tune.bufsize {{ haproxy_global.tune.bufsize }}
+    {% endif %}
+    {% if haproxy_global.tune.maxrewrite is defined %}
+    tune.maxrewrite {{ haproxy_global.tune.maxrewrite }}
+    {% endif %}
+{% endif %}
+
+    # --- Process & thread model ---
+    # nbthread: set to a value > 0 to pin thread count. 0 = let HAProxy decide (no directive emitted).
+    # Note: 'nbthread auto' requires HAProxy >= 2.5; older versions must use an explicit integer.
+{% if haproxy_global.nbthread is defined and haproxy_global.nbthread | int > 0 %}
+    nbthread    {{ haproxy_global.nbthread }}
+{% endif %}
+{% if haproxy_global.cpu_map is defined and haproxy_global.cpu_map != '' %}
+    cpu-map     {{ haproxy_global.cpu_map }}
+{% endif %}
+{% if haproxy_global.spread_checks is defined and haproxy_global.spread_checks | int > 0 %}
+    spread-checks {{ haproxy_global.spread_checks }}
+{% endif %}
+{% if haproxy_global.quiet | default(false) %}
+    quiet
+{% endif %}
+
+    # --- Core settings ---
     chroot      {{ haproxy_global.chroot }}
     pidfile     {{ haproxy_global.pidfile }}
     maxconn     {{ haproxy_global.maxconn }}
@@ -32,6 +88,8 @@ global
 {% if haproxy_global.daemon is defined and haproxy_global.daemon %}
     daemon
 {% endif %}
+
+    # --- Stats sockets ---
 {%if haproxy_global.stats_socket is defined %}
   {% for item in haproxy_global.stats_socket %}
     {% if item.path is defined %}
@@ -44,7 +102,14 @@ global
     {% endif %}
   {% endfor %}
 {% endif %}
+{% if haproxy_stats.runtime_api.enabled | default(false) %}
+    stats socket {{ haproxy_stats.runtime_api.socket }} mode 660 level {{ haproxy_stats.runtime_api.level | default('admin') }} expose-fd listeners
+{% endif %}
 
+
+# =============================================================================
+# DEFAULTS
+# =============================================================================
 
 defaults
     mode        {{ haproxy_defaults.mode | default('http') }}
@@ -61,13 +126,32 @@ defaults
 {{- macro.add_cookie(haproxy_defaults) }}
 {{- macro.add_default_backend(haproxy_defaults) }}
 {{- macro.add_stats(haproxy_defaults) }}
-
-{% if haproxy_peers is defined %}
-peers {{ haproxy_peers.name }}
-  {% for item in haproxy_peers.list %}
-    peer        {{ item.node }} {{ item.address }}:{{ item.port }}
-  {% endfor %}
+{% if haproxy_logging.custom_log_format is defined and haproxy_logging.custom_log_format != '' %}
+    log-format  "{{ haproxy_logging.custom_log_format }}"
 {% endif %}
+{% if haproxy_security.hide_server_header | default(false) %}
+    http-response del-header Server
+{% endif %}
+
+
+# =============================================================================
+# PEERS (High Availability stick-table replication)
+# =============================================================================
+
+{% set _peers_list = haproxy_peers.peers | default(haproxy_peers.list | default([])) %}
+{% if haproxy_peers.enabled | default(false) or (haproxy_peers.list is defined and haproxy_peers.list | length > 0) %}
+{% if _peers_list | length > 0 %}
+peers {{ haproxy_peers.name }}
+  {% for item in _peers_list %}
+    peer        {{ item.name | default(item.node) }} {{ item.address }}:{{ item.port }}
+  {% endfor %}
+
+{% endif %}
+{% endif %}
+
+# =============================================================================
+# USERLISTS
+# =============================================================================
 
 {% if haproxy_userlists is defined %}
   {% for list in haproxy_userlists %}
@@ -88,6 +172,34 @@ userlist {{ list.name }}
   {% endfor %}
 {% endif %}
 
+# =============================================================================
+# STATS & MONITORING frontend
+# =============================================================================
+
+{% if haproxy_stats.enabled | default(false) %}
+frontend __stats
+    bind        {{ haproxy_stats.bind_ip }}:{{ haproxy_stats.port }}
+    mode        http
+    option      dontlognull
+    stats       enable
+    stats       hide-version
+    stats       uri {{ haproxy_stats.uri | default('/stats') }}
+    stats       refresh {{ haproxy_stats.refresh | default('10s') }}
+{% if haproxy_stats.auth.enabled | default(false) %}
+    stats       auth {{ haproxy_stats.auth.username }}:{{ haproxy_stats.auth.password }}
+    stats       realm HAProxy\ Statistics
+{% endif %}
+{% if haproxy_stats.prometheus.enabled | default(false) %}
+    acl         is_prometheus path_beg {{ haproxy_stats.prometheus.uri | default('/metrics') }}
+    http-request use-service prometheus-exporter if is_prometheus
+{% endif %}
+
+{% endif %}
+
+# =============================================================================
+# LISTEN sections
+# =============================================================================
+
 {% if haproxy_listen is defined %}
   {% for listen in haproxy_listen %}
 listen {{ listen.name }}
@@ -100,6 +212,7 @@ listen {{ listen.name }}
     {{- macro.add_monitor(listen) }}
     {{- macro.add_binds(listen) }}
     {{- macro.add_backlog(listen) }}
+    {{- macro.add_maxconn(listen) }}
     {{- macro.add_options(listen) }}
     {{- macro.add_captures(listen) }}
     {{- macro.add_compression(listen) }}
@@ -121,12 +234,17 @@ listen {{ listen.name }}
   {% endfor %}
 {% endif %}
 
+# =============================================================================
+# FRONTEND sections
+# =============================================================================
+
 {% if haproxy_frontend is defined %}
   {% for frontend in haproxy_frontend %}
 frontend {{ frontend.name }}
     mode        {{ frontend.mode }}
 {# whitespace #}
     {{- macro.add_binds(frontend) }}
+    {{- macro.add_maxconn(frontend) }}
     {{- macro.add_logs(frontend) }}
     {{- macro.add_backlog(frontend) }}
     {{- macro.add_options(frontend) }}
@@ -134,8 +252,30 @@ frontend {{ frontend.name }}
     {{- macro.add_compression(frontend) }}
     {{- macro.add_captures(frontend) }}
     {{- macro.add_monitor(frontend) }}
+    {{- macro.add_tcp_inspect_delay(frontend) }}
     {{- macro.add_stick_table(frontend) }}
+
+    {# --- Rate limiting (injected before ACLs) --- #}
+    {{- macro.add_rate_limiting(frontend, haproxy_rate_limits | default([]), haproxy_stick_tables | default([])) }}
+
+    {# --- Security rules --- #}
+    {{- macro.add_security_rules(frontend, haproxy_security | default({})) }}
+
+    {# --- Logging: capture configured headers --- #}
+    {% if haproxy_logging.capture_request_headers is defined %}
+        {% for hdr in haproxy_logging.capture_request_headers %}
+    capture     request header {{ hdr }} len 64
+        {% endfor %}
+    {% endif %}
+    {% if haproxy_logging.capture_response_headers is defined %}
+        {% for hdr in haproxy_logging.capture_response_headers %}
+    capture     response header {{ hdr }} len 64
+        {% endfor %}
+    {% endif %}
+
+    {# --- ACLs (existing key + new routing_rules) --- #}
     {{- macro.add_acls(frontend) }}
+    {{- macro.add_routing_rules(frontend) }}
     {{- macro.add_http("request", frontend) }}
     {{- macro.add_http("response", frontend) }}
     {{- macro.add_tcp("request", frontend) }}
@@ -147,6 +287,10 @@ frontend {{ frontend.name }}
   {% endfor %}
 {% endif %}
 
+# =============================================================================
+# BACKEND sections
+# =============================================================================
+
 {% if haproxy_backend is defined %}
   {% for backend in haproxy_backend %}
 backend {{ backend.name }}
@@ -154,21 +298,36 @@ backend {{ backend.name }}
 {# whitespace #}
     {{- macro.add_balance(backend) }}
     {{- macro.add_hash_type(backend) }}
+    {{- macro.add_source_ip(backend) }}
     {{- macro.add_logs(backend) }}
     {{- macro.add_retries(backend) }}
+    {{- macro.add_redispatch(backend) }}
     {{- macro.add_stick_table(backend) }}
     {{- macro.add_sticks(backend) }}
     {{- macro.add_stickiness(backend) }}
+    {{- macro.add_session_persistence(backend) }}
     {{- macro.add_compression(backend) }}
+    {{- macro.add_forwardfor(backend) }}
     {{- macro.add_options(backend) }}
+    {{- macro.add_tcp_keepalive(backend) }}
+    {{- macro.add_proxy_protocol(backend) }}
     {{- macro.add_http_check(backend) }}
+    {{- macro.add_healthcheck(backend) }}
     {{- macro.add_timeouts(backend) }}
     {{- macro.add_acls(backend) }}
+    {{- macro.add_path_rewrite(backend) }}
+    {{- macro.add_request_response_headers(backend) }}
     {{- macro.add_http("request", backend) }}
     {{- macro.add_http("response", backend) }}
     {{- macro.add_tcp("request", backend) }}
     {{- macro.add_tcp("response", backend) }}
     {{- macro.add_cookie(backend) }}
+
+    {# Per-backend log level override #}
+    {% if haproxy_logging.per_backend_log_level is defined and backend.name in haproxy_logging.per_backend_log_level %}
+    log-level   {{ haproxy_logging.per_backend_log_level[backend.name] }}
+    {% endif %}
+
     {{- macro.add_usable_servers(backend) }}
     {{- macro.add_servers(backend) }}
     {{- macro.add_stats(backend) }}
