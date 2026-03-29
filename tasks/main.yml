@@ -72,14 +72,6 @@
   when: haproxy_stats.runtime_api.enabled | default(false)
 
 # ----------------------------------------------------------------
-# SSL / TLS: Let's Encrypt certificate management
-# ----------------------------------------------------------------
-
-- name: Include SSL certificate tasks
-  ansible.builtin.include_tasks: ssl.yml
-  when: haproxy_letsencrypt.enabled | default(false)
-
-# ----------------------------------------------------------------
 # Logging (rsyslog + logrotate)
 # ----------------------------------------------------------------
 
@@ -107,3 +99,13 @@
 
 - name: Run pre-flight validation checks
   ansible.builtin.include_tasks: validation.yml
+
+# ----------------------------------------------------------------
+# Service state
+# ----------------------------------------------------------------
+
+- name: Ensure HAProxy Service is Started and Enabled
+  ansible.builtin.systemd:
+    name: haproxy
+    state: started
+    enabled: true

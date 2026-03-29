@@ -418,16 +418,6 @@ haproxy_ssl:
   # Enable OCSP stapling in global section
   ocsp_stapling: false
 
-haproxy_letsencrypt:
-  # Set to true to enable Let's Encrypt certificate management
-  enabled: false
-  # List of domain names for which to combine fullchain+privkey → HAProxy PEM
-  domains: []
-  # Path where certbot stores live certificates
-  cert_dir: /etc/letsencrypt/live
-  # Install a renewal deploy-hook that recombines certs and reloads HAProxy
-  deploy_hook: true
-
 # ================================================================
 # RATE LIMITING
 # ================================================================
