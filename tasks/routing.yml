@@ -1,0 +1,328 @@
+---
+# tasks/routing.yml - OS-level network routing for multi-interface HAProxy
+#
+# Manages static routes, policy-based routing (ip rule / ip route tables),
+# and sysctl tuning required for symmetric routing across multiple NICs.
+#
+# Fully idempotent: when routing configuration is removed from variables,
+# this file cleans up routes, ip rules, systemd service, script, and sysctl.
+
+# ================================================================
+# Determine whether routing is active or should be cleaned up
+# ================================================================
+
+- name: Set Routing State Facts
+  ansible.builtin.set_fact:
+    _haproxy_routing_active: >-
+      {{ (haproxy_network_routes | default([]) | length > 0) or
+         (haproxy_policy_routing.enabled | default(false)) }}
+    _haproxy_nonlocal_bind_active: "{{ haproxy_ip_nonlocal_bind | default(false) }}"
+
+# ================================================================
+# APPLY — when routing configuration is present
+# ================================================================
+
+# ----------------------------------------------------------------
+# Sysctl tuning
+# ----------------------------------------------------------------
+
+- name: Enable IP Non-Local Bind via Sysctl
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: "1"
+    sysctl_file: /etc/sysctl.d/99-haproxy.conf
+    state: present
+    reload: true
+  when: _haproxy_nonlocal_bind_active | bool
+
+# ----------------------------------------------------------------
+# Static routes (immediate)
+# ----------------------------------------------------------------
+
+- name: Check Existing Static Routes
+  ansible.builtin.command:
+    cmd: "ip route show {{ item.destination }}{{ ' table ' ~ item.table if item.table is defined and item.table != '' else '' }}"
+  loop: "{{ haproxy_network_routes | default([]) }}"
+  loop_control:
+    label: "{{ item.destination }}"
+  register: _existing_routes
+  changed_when: false
+  failed_when: false
+  when: haproxy_network_routes | default([]) | length > 0
+
+- name: Apply Static Routes
+  ansible.builtin.command:
+    cmd: >-
+      ip route replace {{ item.item.destination }}
+      via {{ item.item.gateway }}
+      {{ 'dev ' ~ item.item.interface if item.item.interface is defined and item.item.interface != '' else '' }}
+      {{ 'table ' ~ item.item.table if item.item.table is defined and item.item.table != '' else '' }}
+  loop: "{{ _existing_routes.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.destination }}"
+  changed_when: item.item.gateway not in (item.stdout | default(''))
+  when: haproxy_network_routes | default([]) | length > 0
+
+# ----------------------------------------------------------------
+# Policy routing — register custom tables
+# ----------------------------------------------------------------
+
+- name: Register Policy Routing Tables in rt_tables
+  ansible.builtin.lineinfile:
+    path: /etc/iproute2/rt_tables
+    line: "{{ item.number }} {{ item.name }}"
+    regexp: "^{{ item.number }}\\s"
+    state: present
+  loop: "{{ haproxy_policy_routing.tables | default([]) }}"
+  loop_control:
+    label: "{{ item.name }} (table {{ item.number }})"
+  when: haproxy_policy_routing.enabled | default(false)
+
+# ----------------------------------------------------------------
+# Policy routing — add default route per table
+# ----------------------------------------------------------------
+
+- name: Add Policy Routing Table Default Routes
+  ansible.builtin.command:
+    cmd: >-
+      ip route replace default
+      via {{ item.gateway }}
+      {{ 'dev ' ~ item.interface if item.interface is defined and item.interface != '' else '' }}
+      table {{ item.name }}
+  loop: "{{ haproxy_policy_routing.tables | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _policy_route_result
+  changed_when: _policy_route_result.rc == 0
+  when: haproxy_policy_routing.enabled | default(false)
+
+# ----------------------------------------------------------------
+# Policy routing — add ip rules (source-based routing)
+# ----------------------------------------------------------------
+
+- name: Check Existing Policy Routing Rules
+  ansible.builtin.command:
+    cmd: "ip rule show from {{ item.source }}"
+  loop: "{{ haproxy_policy_routing.tables | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _existing_rules
+  changed_when: false
+  failed_when: false
+  when: haproxy_policy_routing.enabled | default(false)
+
+- name: Add Policy Routing Rules
+  ansible.builtin.command:
+    cmd: >-
+      ip rule add
+      from {{ item.item.source }}
+      table {{ item.item.name }}
+      priority {{ item.item.priority | default(100 + idx) }}
+  loop: "{{ _existing_rules.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+    index_var: idx
+  changed_when: true
+  when:
+    - haproxy_policy_routing.enabled | default(false)
+    - ('lookup ' ~ item.item.name) not in (item.stdout | default(''))
+
+# ----------------------------------------------------------------
+# Persistence — deploy routing script + systemd oneshot service
+# ----------------------------------------------------------------
+
+- name: Deploy HAProxy Routing Script
+  ansible.builtin.template:
+    src: haproxy-routing.sh.j2
+    dest: /usr/local/bin/haproxy-routing.sh
+    owner: root
+    group: root
+    mode: "0755"
+  when: _haproxy_routing_active | bool
+
+- name: Deploy HAProxy Routing Systemd Service
+  ansible.builtin.template:
+    src: haproxy-routing.service.j2
+    dest: /etc/systemd/system/haproxy-routing.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: _haproxy_routing_active | bool
+  notify: reload systemd daemon
+
+- name: Flush Handlers Before Enabling Routing Service
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable HAProxy Routing Service
+  ansible.builtin.systemd:
+    name: haproxy-routing.service
+    enabled: true
+    daemon_reload: true
+  when: _haproxy_routing_active | bool
+
+# ================================================================
+# CLEANUP — when routing configuration has been removed
+# ================================================================
+#
+# Order matters:
+#   1. Slurp the old routing script to learn what was managed
+#   2. Remove live routes, ip rules, and rt_tables entries
+#   3. Remove the script, systemd service, and sysctl file
+#
+# This ensures we never delete the script before reading it and
+# that a host which never had routing configured skips everything
+# (stat on the service file gates the entire block).
+
+# ----------------------------------------------------------------
+# Cleanup: detect previous deployment
+# ----------------------------------------------------------------
+
+- name: Check If HAProxy Routing Service Exists
+  ansible.builtin.stat:
+    path: /etc/systemd/system/haproxy-routing.service
+  register: _routing_service_file
+
+- name: Check If HAProxy Routing Script Exists
+  ansible.builtin.stat:
+    path: /usr/local/bin/haproxy-routing.sh
+  register: _routing_script_file
+
+# ----------------------------------------------------------------
+# Cleanup: read the old script to discover managed resources
+# ----------------------------------------------------------------
+
+- name: Read Existing Routing Script for Cleanup Data
+  ansible.builtin.slurp:
+    src: /usr/local/bin/haproxy-routing.sh
+  register: _old_routing_script
+  failed_when: false
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _routing_script_file.stat.exists | default(false)
+
+- name: Parse Managed Resources from Old Script
+  ansible.builtin.set_fact:
+    _managed_table_names: >-
+      {{ _old_routing_script.content | default('') | b64decode | default('')
+         | regex_findall("lookup (\\S+)") | unique }}
+    _managed_static_routes: >-
+      {{ _old_routing_script.content | default('') | b64decode | default('')
+         | regex_findall("ip route replace (\\S+)") | unique }}
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _old_routing_script is not skipped
+    - _old_routing_script.content is defined
+
+# ----------------------------------------------------------------
+# Cleanup: live policy routing rules and routes
+# ----------------------------------------------------------------
+
+- name: Remove Managed Policy Routing Rules
+  ansible.builtin.shell:
+    cmd: >-
+      while ip rule del table {{ item }} 2>/dev/null; do :; done
+    executable: /bin/bash
+  loop: "{{ _managed_table_names | default([]) }}"
+  loop_control:
+    label: "table {{ item }}"
+  changed_when: true
+  failed_when: false
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _managed_table_names | default([]) | length > 0
+
+- name: Flush Managed Policy Routing Tables
+  ansible.builtin.command:
+    cmd: "ip route flush table {{ item }}"
+  loop: "{{ _managed_table_names | default([]) }}"
+  loop_control:
+    label: "table {{ item }}"
+  changed_when: true
+  failed_when: false
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _managed_table_names | default([]) | length > 0
+
+- name: Remove Managed Table Entries from rt_tables
+  ansible.builtin.lineinfile:
+    path: /etc/iproute2/rt_tables
+    regexp: "\\s{{ item }}$"
+    state: absent
+  loop: "{{ _managed_table_names | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _managed_table_names | default([]) | length > 0
+
+- name: Remove Managed Static Routes
+  ansible.builtin.command:
+    cmd: "ip route del {{ item }}"
+  loop: "{{ _managed_static_routes | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: true
+  failed_when: false
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _managed_static_routes | default([]) | length > 0
+
+# ----------------------------------------------------------------
+# Cleanup: systemd service
+# ----------------------------------------------------------------
+
+- name: Stop and Disable HAProxy Routing Service
+  ansible.builtin.systemd:
+    name: haproxy-routing.service
+    state: stopped
+    enabled: false
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _routing_service_file.stat.exists | default(false)
+
+- name: Remove HAProxy Routing Systemd Service File
+  ansible.builtin.file:
+    path: /etc/systemd/system/haproxy-routing.service
+    state: absent
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _routing_service_file.stat.exists | default(false)
+  notify: reload systemd daemon
+
+# ----------------------------------------------------------------
+# Cleanup: routing script
+# ----------------------------------------------------------------
+
+- name: Remove HAProxy Routing Script
+  ansible.builtin.file:
+    path: /usr/local/bin/haproxy-routing.sh
+    state: absent
+  when:
+    - not (_haproxy_routing_active | bool)
+    - _routing_script_file.stat.exists | default(false)
+
+# ----------------------------------------------------------------
+# Cleanup: sysctl
+# ----------------------------------------------------------------
+
+- name: Check If HAProxy Sysctl Config Exists
+  ansible.builtin.stat:
+    path: /etc/sysctl.d/99-haproxy.conf
+  register: _sysctl_file
+
+- name: Remove IP Non-Local Bind Sysctl Config
+  ansible.builtin.file:
+    path: /etc/sysctl.d/99-haproxy.conf
+    state: absent
+  register: _sysctl_removed
+  when:
+    - not (_haproxy_nonlocal_bind_active | bool)
+    - _sysctl_file.stat.exists | default(false)
+
+- name: Reload Sysctl After Removing HAProxy Config
+  ansible.builtin.command:
+    cmd: sysctl --system
+  changed_when: true
+  when:
+    - not (_haproxy_nonlocal_bind_active | bool)
+    - _sysctl_removed is changed

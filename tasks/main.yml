@@ -52,6 +52,13 @@
   when: haproxy_whitelist_file_name | length > 0
 
 # ----------------------------------------------------------------
+# Network routing (multi-interface / policy routing)
+# ----------------------------------------------------------------
+
+- name: Include Network Routing Tasks
+  ansible.builtin.include_tasks: routing.yml
+
+# ----------------------------------------------------------------
 # Runtime API socket directory
 # ----------------------------------------------------------------
 

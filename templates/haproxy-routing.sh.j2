@@ -1,0 +1,32 @@
+{#- jinja2: lstrip_blocks: true, trim_blocks: true -#}
+#!/bin/bash
+# {{ ansible_managed }}
+# HAProxy multi-interface routing — applied at boot by haproxy-routing.service.
+# Do not edit manually; changes will be overwritten by Ansible.
+set -euo pipefail
+
+{% if haproxy_network_routes | length > 0 %}
+# ---------------------------------------------------------------
+# Static routes
+# ---------------------------------------------------------------
+{% for route in haproxy_network_routes %}
+ip route replace {{ route.destination }} via {{ route.gateway }}{{ ' dev ' ~ route.interface if route.interface is defined and route.interface != '' else '' }}{{ ' table ' ~ route.table if route.table is defined and route.table != '' else '' }}
+{% endfor %}
+{% endif %}
+
+{% if haproxy_policy_routing.enabled | default(false) %}
+# ---------------------------------------------------------------
+# Policy routing tables and rules
+# ---------------------------------------------------------------
+{% for table in haproxy_policy_routing.tables %}
+# Table: {{ table.name }} ({{ table.number }})
+ip route replace default via {{ table.gateway }}{{ ' dev ' ~ table.interface if table.interface is defined and table.interface != '' else '' }} table {{ table.name }}
+
+# Add ip rule only if it does not already exist
+if ! ip rule show from {{ table.source }} | grep -q 'lookup {{ table.name }}'; then
+    ip rule add from {{ table.source }} table {{ table.name }} priority {{ table.priority | default(100 + loop.index0) }}
+fi
+{% endfor %}
+{% endif %}
+
+echo "HAProxy routing applied successfully."

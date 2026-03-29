@@ -72,6 +72,38 @@
   loop_control:
     label: "{{ item.table }}"
 
+- name: Assert static routes have required fields
+  ansible.builtin.assert:
+    that:
+      - item.destination is defined and item.destination != ''
+      - item.gateway is defined and item.gateway != ''
+    fail_msg: "haproxy_network_routes entry must define 'destination' and 'gateway', got: {{ item }}"
+  loop: "{{ haproxy_network_routes | default([]) }}"
+  loop_control:
+    label: "{{ item.destination | default('MISSING') }}"
+
+- name: Assert policy routing tables have required fields
+  ansible.builtin.assert:
+    that:
+      - item.name is defined and item.name != ''
+      - item.number is defined and item.number | int > 0
+      - item.source is defined and item.source != ''
+      - item.gateway is defined and item.gateway != ''
+    fail_msg: "haproxy_policy_routing.tables entry must define name, number (>0), source, and gateway, got: {{ item }}"
+  loop: "{{ haproxy_policy_routing.tables | default([]) }}"
+  loop_control:
+    label: "{{ item.name | default('MISSING') }}"
+  when: haproxy_policy_routing.enabled | default(false)
+
+- name: Assert policy routing table numbers are unique
+  ansible.builtin.assert:
+    that:
+      - (haproxy_policy_routing.tables | map(attribute='number') | list | unique | length) == (haproxy_policy_routing.tables | length)
+    fail_msg: "haproxy_policy_routing.tables contain duplicate table numbers"
+  when:
+    - haproxy_policy_routing.enabled | default(false)
+    - haproxy_policy_routing.tables | default([]) | length > 1
+
 - name: Validate HAProxy configuration syntax
   ansible.builtin.command:
     cmd: "haproxy -c -f {{ haproxy_destination_config_path }}"

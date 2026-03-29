@@ -1,0 +1,17 @@
+{#- jinja2: lstrip_blocks: true, trim_blocks: true -#}
+# {{ ansible_managed }}
+# Applies HAProxy multi-interface routing rules at boot.
+
+[Unit]
+Description=HAProxy multi-interface routing setup
+After=network-online.target
+Wants=network-online.target
+Before=haproxy.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/haproxy-routing.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

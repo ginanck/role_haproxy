@@ -29,6 +29,58 @@ haproxy_public_ip: ""
 haproxy_private_ip: ""
 
 # ================================================================
+# NETWORK ROUTING (multi-interface / policy routing)
+# ================================================================
+#
+# These settings manage OS-level routing so that HAProxy can operate
+# as a multi-interface load balancer (F5-style).  Traffic arriving on
+# the public interface is proxied to backends on a private interface,
+# and response traffic is guaranteed to return through HAProxy
+# (symmetric routing).
+#
+# Typical two-NIC layout:
+#   NIC1 (public)  — default gateway, clients connect here
+#   NIC2 (private) — backend network, HAProxy sources connections
+#                    from haproxy_private_ip on this NIC
+
+# Static routes to reach backend networks that are not directly connected.
+haproxy_network_routes: []
+# Example:
+# haproxy_network_routes:
+#   - destination: 10.1.0.0/24
+#     gateway: 10.0.0.254
+#     interface: eth1            # optional: outgoing device
+#     table: ""                  # optional: routing table name/number
+
+# Policy-based routing for multi-interface setups.
+# Creates ip rule + ip route entries so that response traffic always
+# exits through the correct interface (symmetric routing).
+haproxy_policy_routing:
+  enabled: false
+  tables: []
+# Example — ensure responses from public IP leave via the public gateway:
+# haproxy_policy_routing:
+#   enabled: true
+#   tables:
+#     - name: haproxy_public
+#       number: 100
+#       source: 203.0.113.10      # from this local IP …
+#       gateway: 203.0.113.1      # … route via this gateway
+#       interface: eth0            # … out this device
+#       priority: 100              # ip rule priority (optional, default auto)
+#     - name: haproxy_private
+#       number: 101
+#       source: 10.0.0.1
+#       gateway: 10.0.0.254
+#       interface: eth1
+#       priority: 101
+
+# Enable net.ipv4.ip_nonlocal_bind — allows HAProxy to bind to an IP
+# that is not (yet) assigned to this host.  Useful with keepalived /
+# floating VIPs in HA setups.
+haproxy_ip_nonlocal_bind: false
+
+# ================================================================
 # GLOBAL TUNING
 # ================================================================
 
