@@ -33,6 +33,7 @@ repos:
         description: Ensures files end with a single newline character
       - id: check-added-large-files
         name: check-added-large-files
+        exclude: ^docs/
         description: Prevents accidentally committing large files (over 500KB by default)
         args: ["--maxkb=500"]
       - id: check-case-conflict

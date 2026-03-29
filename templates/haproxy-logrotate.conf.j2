@@ -1,0 +1,14 @@
+{#- jinja2: lstrip_blocks: true, trim_blocks: true -#}
+# {{ ansible_managed }}
+{{ haproxy_log_dir }}/*.log {
+    {{ haproxy_logging.logrotate.frequency | default('daily') }}
+    rotate {{ haproxy_logging.logrotate.retain | default(14) }}
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate 2>/dev/null || true
+    endscript
+}

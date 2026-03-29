@@ -1,0 +1,6 @@
+# Gitleaks ignore file for test/example configurations
+# These are example passwords used for testing and demonstration purposes only
+
+docs/management.txt:generic-api-key:3536
+docs/management.txt:generic-api-key:3540
+docs/management.txt:generic-api-key:3554

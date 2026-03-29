@@ -15,3 +15,13 @@
   ansible.builtin.service:
     name: "haproxy"
     state: restarted
+
+- name: restart rsyslog
+  ansible.builtin.service:
+    name: "rsyslog"
+    state: restarted
+  when: ansible_facts['virtualization_type'] not in ['container', 'docker']
+
+- name: reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true

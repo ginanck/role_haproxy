@@ -1,0 +1,40 @@
+---
+# tasks file for configuring HAProxy rsyslog and logrotate
+
+- name: Install Rsyslog Package
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+
+- name: Create HAProxy Log Directory
+  ansible.builtin.file:
+    path: "{{ haproxy_log_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy Rsyslog Configuration for HAProxy
+  ansible.builtin.template:
+    src: haproxy-rsyslog.conf.j2
+    dest: /etc/rsyslog.d/49-haproxy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - restart rsyslog
+
+- name: Enable and Start Rsyslog Service
+  ansible.builtin.service:
+    name: rsyslog
+    state: started
+    enabled: true
+  when: ansible_facts['virtualization_type'] not in ['container', 'docker']
+
+- name: Deploy Logrotate Configuration for HAProxy
+  ansible.builtin.template:
+    src: haproxy-logrotate.conf.j2
+    dest: "{{ haproxy_logrotate_file }}"
+    owner: root
+    group: root
+    mode: "0644"
