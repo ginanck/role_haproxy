@@ -600,8 +600,8 @@
                 {% endif %}
             {% endif %}
         {% endif %}
-        {# Request body size limit #}
-        {% if security.request_body_size_limit.enabled | default(false) %}
+        {# Request body size limit (HTTP-only — skip for TCP frontends) #}
+        {% if security.request_body_size_limit.enabled | default(false) and item.mode | default('http') == 'http' %}
     option      http-buffer-request
     http-request deny if { req.body_size gt {{ security.request_body_size_limit.max_bytes | default(10485760) }} }
         {% endif %}

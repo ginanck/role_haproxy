@@ -129,9 +129,6 @@ defaults
 {% if haproxy_logging.custom_log_format is defined and haproxy_logging.custom_log_format != '' %}
     log-format  "{{ haproxy_logging.custom_log_format }}"
 {% endif %}
-{% if haproxy_security.hide_server_header | default(false) %}
-    http-response del-header Server
-{% endif %}
 
 
 # =============================================================================
@@ -280,6 +277,9 @@ frontend {{ frontend.name }}
     {{- macro.add_http("response", frontend) }}
     {{- macro.add_tcp("request", frontend) }}
     {{- macro.add_tcp("response", frontend) }}
+    {% if frontend.mode == 'http' and haproxy_security.hide_server_header | default(false) %}
+    http-response del-header Server
+    {% endif %}
     {{- macro.add_redirects(frontend) }}
     {{- macro.add_usable_backends(frontend) }}
     {{- macro.add_default_backend(frontend) }}
@@ -321,6 +321,9 @@ backend {{ backend.name }}
     {{- macro.add_http("response", backend) }}
     {{- macro.add_tcp("request", backend) }}
     {{- macro.add_tcp("response", backend) }}
+    {% if backend.mode == 'http' and haproxy_security.hide_server_header | default(false) %}
+    http-response del-header Server
+    {% endif %}
     {{- macro.add_cookie(backend) }}
 
     {# Per-backend log level override #}
