@@ -77,7 +77,9 @@ global
 
     # --- Core settings ---
     chroot      {{ haproxy_global.chroot }}
+{% if haproxy_global.pidfile is defined %}
     pidfile     {{ haproxy_global.pidfile }}
+{% endif %}
     maxconn     {{ haproxy_global.maxconn }}
 {% if haproxy_global.user is defined %}
     user        {{ haproxy_global.user }}

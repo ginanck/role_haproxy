@@ -308,11 +308,6 @@ ansible-galaxy install -r meta/install_requirements.yml
 | [haproxy_global.tune_ssl_default_dh_param](defaults/main.yml#L99) | int | `2048` |
 | [haproxy_global.user](defaults/main.yml#L103) | str | `haproxy` |
 | [haproxy_ip_nonlocal_bind](defaults/main.yml#L82) | bool |  |
-| [haproxy_letsencrypt](defaults/main.yml#L421) | dict |  |
-| [haproxy_letsencrypt.cert_dir](defaults/main.yml#L427) | str | `/etc/letsencrypt/live` |
-| [haproxy_letsencrypt.deploy_hook](defaults/main.yml#L429) | bool | `True` |
-| [haproxy_letsencrypt.domains](defaults/main.yml#L425) | list |  |
-| [haproxy_letsencrypt.enabled](defaults/main.yml#L423) | bool |  |
 | [haproxy_listen](defaults/main.yml#L378) | list |  |
 | [haproxy_listen.0](defaults/main.yml#L379) | dict |  |
 | [haproxy_listen.0.bind](defaults/main.yml#L382) | list |  |
@@ -348,68 +343,68 @@ ansible-galaxy install -r meta/install_requirements.yml
 | [haproxy_listen.1.stats.uri](defaults/main.yml#L398) | str | `/admin?stats` |
 | [haproxy_log_dir](defaults/main.yml#L10) | str | `/var/log/haproxy` |
 | [haproxy_log_file](defaults/main.yml#L11) | str | `{{ haproxy_log_dir }}/haproxy.log` |
-| [haproxy_logging](defaults/main.yml#L489) | dict |  |
-| [haproxy_logging.capture_request_headers](defaults/main.yml#L495) | list |  |
-| [haproxy_logging.capture_response_headers](defaults/main.yml#L497) | list |  |
-| [haproxy_logging.custom_log_format](defaults/main.yml#L499) | str |  |
-| [haproxy_logging.destination](defaults/main.yml#L491) | str | `/dev/log` |
-| [haproxy_logging.facility](defaults/main.yml#L492) | str | `local0` |
-| [haproxy_logging.level](defaults/main.yml#L493) | str | `info` |
-| [haproxy_logging.logrotate](defaults/main.yml#L507) | dict |  |
-| [haproxy_logging.logrotate.frequency](defaults/main.yml#L508) | str | `daily` |
-| [haproxy_logging.logrotate.retain](defaults/main.yml#L509) | int | `14` |
-| [haproxy_logging.per_backend_log_level](defaults/main.yml#L501) | dict |  |
-| [haproxy_logging.rsyslog](defaults/main.yml#L503) | dict |  |
-| [haproxy_logging.rsyslog.udp_listen](defaults/main.yml#L505) | bool |  |
+| [haproxy_logging](defaults/main.yml#L479) | dict |  |
+| [haproxy_logging.capture_request_headers](defaults/main.yml#L485) | list |  |
+| [haproxy_logging.capture_response_headers](defaults/main.yml#L487) | list |  |
+| [haproxy_logging.custom_log_format](defaults/main.yml#L489) | str |  |
+| [haproxy_logging.destination](defaults/main.yml#L481) | str | `/dev/log` |
+| [haproxy_logging.facility](defaults/main.yml#L482) | str | `local0` |
+| [haproxy_logging.level](defaults/main.yml#L483) | str | `info` |
+| [haproxy_logging.logrotate](defaults/main.yml#L497) | dict |  |
+| [haproxy_logging.logrotate.frequency](defaults/main.yml#L498) | str | `daily` |
+| [haproxy_logging.logrotate.retain](defaults/main.yml#L499) | int | `14` |
+| [haproxy_logging.per_backend_log_level](defaults/main.yml#L491) | dict |  |
+| [haproxy_logging.rsyslog](defaults/main.yml#L493) | dict |  |
+| [haproxy_logging.rsyslog.udp_listen](defaults/main.yml#L495) | bool |  |
 | [haproxy_logrotate_file](defaults/main.yml#L12) | str | `/etc/logrotate.d/haproxy` |
 | [haproxy_network_routes](defaults/main.yml#L48) | list |  |
-| [haproxy_peers](defaults/main.yml#L543) | dict |  |
-| [haproxy_peers.enabled](defaults/main.yml#L544) | bool |  |
-| [haproxy_peers.name](defaults/main.yml#L545) | str | `haproxy_cluster` |
-| [haproxy_peers.peers](defaults/main.yml#L546) | list |  |
+| [haproxy_peers](defaults/main.yml#L533) | dict |  |
+| [haproxy_peers.enabled](defaults/main.yml#L534) | bool |  |
+| [haproxy_peers.name](defaults/main.yml#L535) | str | `haproxy_cluster` |
+| [haproxy_peers.peers](defaults/main.yml#L536) | list |  |
 | [haproxy_policy_routing](defaults/main.yml#L59) | dict |  |
 | [haproxy_policy_routing.enabled](defaults/main.yml#L60) | bool |  |
 | [haproxy_policy_routing.tables](defaults/main.yml#L61) | list |  |
 | [haproxy_private_ip](defaults/main.yml#L30) | str |  |
 | [haproxy_public_ip](defaults/main.yml#L25) | str |  |
-| [haproxy_rate_limits](defaults/main.yml#L452) | list |  |
-| [haproxy_security](defaults/main.yml#L465) | dict |  |
-| [haproxy_security.hide_server_header](defaults/main.yml#L483) | bool |  |
-| [haproxy_security.ip_blacklist](defaults/main.yml#L472) | dict |  |
-| [haproxy_security.ip_blacklist.apply_to](defaults/main.yml#L477) | list |  |
-| [haproxy_security.ip_blacklist.enabled](defaults/main.yml#L473) | bool |  |
-| [haproxy_security.ip_blacklist.ips](defaults/main.yml#L475) | list |  |
-| [haproxy_security.ip_whitelist](defaults/main.yml#L466) | dict |  |
-| [haproxy_security.ip_whitelist.apply_to](defaults/main.yml#L471) | list |  |
-| [haproxy_security.ip_whitelist.enabled](defaults/main.yml#L467) | bool |  |
-| [haproxy_security.ip_whitelist.ips](defaults/main.yml#L469) | list |  |
-| [haproxy_security.request_body_size_limit](defaults/main.yml#L478) | dict |  |
-| [haproxy_security.request_body_size_limit.enabled](defaults/main.yml#L479) | bool |  |
-| [haproxy_security.request_body_size_limit.max_bytes](defaults/main.yml#L481) | int | `10485760` |
+| [haproxy_rate_limits](defaults/main.yml#L442) | list |  |
+| [haproxy_security](defaults/main.yml#L455) | dict |  |
+| [haproxy_security.hide_server_header](defaults/main.yml#L473) | bool |  |
+| [haproxy_security.ip_blacklist](defaults/main.yml#L462) | dict |  |
+| [haproxy_security.ip_blacklist.apply_to](defaults/main.yml#L467) | list |  |
+| [haproxy_security.ip_blacklist.enabled](defaults/main.yml#L463) | bool |  |
+| [haproxy_security.ip_blacklist.ips](defaults/main.yml#L465) | list |  |
+| [haproxy_security.ip_whitelist](defaults/main.yml#L456) | dict |  |
+| [haproxy_security.ip_whitelist.apply_to](defaults/main.yml#L461) | list |  |
+| [haproxy_security.ip_whitelist.enabled](defaults/main.yml#L457) | bool |  |
+| [haproxy_security.ip_whitelist.ips](defaults/main.yml#L459) | list |  |
+| [haproxy_security.request_body_size_limit](defaults/main.yml#L468) | dict |  |
+| [haproxy_security.request_body_size_limit.enabled](defaults/main.yml#L469) | bool |  |
+| [haproxy_security.request_body_size_limit.max_bytes](defaults/main.yml#L471) | int | `10485760` |
 | [haproxy_ssl](defaults/main.yml#L409) | dict |  |
 | [haproxy_ssl.cert_dir](defaults/main.yml#L411) | str | `{{ haproxy_config_dir }}/certs` |
 | [haproxy_ssl.default_bind_ciphers](defaults/main.yml#L413) | str |  |
 | [haproxy_ssl.default_bind_options](defaults/main.yml#L415) | str |  |
 | [haproxy_ssl.ocsp_stapling](defaults/main.yml#L419) | bool |  |
 | [haproxy_ssl.session_cache_size](defaults/main.yml#L417) | int | `20000` |
-| [haproxy_stats](defaults/main.yml#L515) | dict |  |
-| [haproxy_stats.auth](defaults/main.yml#L522) | dict |  |
-| [haproxy_stats.auth.enabled](defaults/main.yml#L523) | bool |  |
-| [haproxy_stats.auth.password](defaults/main.yml#L525) | str |  |
-| [haproxy_stats.auth.username](defaults/main.yml#L524) | str | `admin` |
-| [haproxy_stats.bind_ip](defaults/main.yml#L518) | str | `127.0.0.1` |
-| [haproxy_stats.enabled](defaults/main.yml#L517) | bool |  |
-| [haproxy_stats.port](defaults/main.yml#L519) | int | `8404` |
-| [haproxy_stats.prometheus](defaults/main.yml#L526) | dict |  |
-| [haproxy_stats.prometheus.enabled](defaults/main.yml#L528) | bool |  |
-| [haproxy_stats.prometheus.uri](defaults/main.yml#L529) | str | `/metrics` |
-| [haproxy_stats.refresh](defaults/main.yml#L521) | str | `10s` |
-| [haproxy_stats.runtime_api](defaults/main.yml#L530) | dict |  |
-| [haproxy_stats.runtime_api.enabled](defaults/main.yml#L532) | bool |  |
-| [haproxy_stats.runtime_api.level](defaults/main.yml#L534) | str | `admin` |
-| [haproxy_stats.runtime_api.socket](defaults/main.yml#L533) | str | `/var/run/haproxy/admin.sock` |
-| [haproxy_stats.uri](defaults/main.yml#L520) | str | `/stats` |
-| [haproxy_stick_tables](defaults/main.yml#L437) | list |  |
+| [haproxy_stats](defaults/main.yml#L505) | dict |  |
+| [haproxy_stats.auth](defaults/main.yml#L512) | dict |  |
+| [haproxy_stats.auth.enabled](defaults/main.yml#L513) | bool |  |
+| [haproxy_stats.auth.password](defaults/main.yml#L515) | str |  |
+| [haproxy_stats.auth.username](defaults/main.yml#L514) | str | `admin` |
+| [haproxy_stats.bind_ip](defaults/main.yml#L508) | str | `127.0.0.1` |
+| [haproxy_stats.enabled](defaults/main.yml#L507) | bool |  |
+| [haproxy_stats.port](defaults/main.yml#L509) | int | `8404` |
+| [haproxy_stats.prometheus](defaults/main.yml#L516) | dict |  |
+| [haproxy_stats.prometheus.enabled](defaults/main.yml#L518) | bool |  |
+| [haproxy_stats.prometheus.uri](defaults/main.yml#L519) | str | `/metrics` |
+| [haproxy_stats.refresh](defaults/main.yml#L511) | str | `10s` |
+| [haproxy_stats.runtime_api](defaults/main.yml#L520) | dict |  |
+| [haproxy_stats.runtime_api.enabled](defaults/main.yml#L522) | bool |  |
+| [haproxy_stats.runtime_api.level](defaults/main.yml#L524) | str | `admin` |
+| [haproxy_stats.runtime_api.socket](defaults/main.yml#L523) | str | `/var/run/haproxy/admin.sock` |
+| [haproxy_stats.uri](defaults/main.yml#L510) | str | `/stats` |
+| [haproxy_stick_tables](defaults/main.yml#L427) | list |  |
 | [haproxy_whitelist_file_dir](defaults/main.yml#L14) | str | `{{ haproxy_config_dir }}/whitelist` |
 | [haproxy_whitelist_file_name](defaults/main.yml#L15) | str |  |
 
@@ -430,7 +425,6 @@ This role performs the following tasks:
 | [Assert haproxy_defaults mode is valid](tasks/validation.yml#L) | ansible.builtin.assert | No | N/A |
 | [Assert frontend modes are valid](tasks/validation.yml#L) | ansible.builtin.assert | No | N/A |
 | [Assert backend modes are valid](tasks/validation.yml#L) | ansible.builtin.assert | No | N/A |
-| [Assert Let's Encrypt config when enabled](tasks/validation.yml#L) | ansible.builtin.assert | Yes | N/A |
 | [Assert stats auth credentials when stats + auth enabled](tasks/validation.yml#L) | ansible.builtin.assert | Yes | N/A |
 | [Assert peers list is non-empty when HA peers enabled](tasks/validation.yml#L) | ansible.builtin.assert | Yes | N/A |
 | [Assert rate limit tables reference existing stick tables](tasks/validation.yml#L) | ansible.builtin.assert | No | N/A |
@@ -489,18 +483,6 @@ This role performs the following tasks:
 
 
 
-### File: `tasks/ssl.yml`
-
-| Task Name | Module | Has Conditions | Line |
-|-----------|--------|----------------|------|
-| [Create HAProxy SSL cert directory](tasks/ssl.yml#L) | ansible.builtin.file | No | N/A |
-| [Combine Let's Encrypt certs into HAProxy PEM format](tasks/ssl.yml#L) | ansible.builtin.shell | No | N/A |
-| [Set correct permissions on HAProxy PEM files](tasks/ssl.yml#L) | ansible.builtin.file | No | N/A |
-| [Install Let's Encrypt renewal deploy-hook for HAProxy](tasks/ssl.yml#L) | ansible.builtin.copy | Yes | N/A |
-
-
-
-
 ### File: `tasks/install-Debian.yml`
 
 | Task Name | Module | Has Conditions | Line |
@@ -522,10 +504,10 @@ This role performs the following tasks:
 | [Copy Whitelist File to Host](tasks/main.yml#L) | ansible.builtin.copy | Yes | N/A |
 | [Include Network Routing Tasks](tasks/main.yml#L) | ansible.builtin.include_tasks | No | N/A |
 | [Create runtime API socket directory](tasks/main.yml#L) | ansible.builtin.file | Yes | N/A |
-| [Include SSL certificate tasks](tasks/main.yml#L) | ansible.builtin.include_tasks | Yes | N/A |
 | [Include Logging Tasks](tasks/main.yml#L) | ansible.builtin.include_tasks | No | N/A |
 | [Configure haproxy using haproxy.cfg](tasks/main.yml#L) | ansible.builtin.template | No | N/A |
 | [Run pre-flight validation checks](tasks/main.yml#L) | ansible.builtin.include_tasks | No | N/A |
+| [Ensure HAProxy Service is Started and Enabled](tasks/main.yml#L) | ansible.builtin.systemd | No | N/A |
 
 
 
