@@ -80,6 +80,13 @@
   when: haproxy_letsencrypt.enabled | default(false)
 
 # ----------------------------------------------------------------
+# Logging (rsyslog + logrotate)
+# ----------------------------------------------------------------
+
+- name: Include Logging Tasks
+  ansible.builtin.include_tasks: logging.yml
+
+# ----------------------------------------------------------------
 # Configuration rendering
 # ----------------------------------------------------------------
 

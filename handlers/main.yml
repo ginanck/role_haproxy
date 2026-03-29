@@ -16,6 +16,11 @@
     name: "haproxy"
     state: restarted
 
+- name: restart rsyslog
+  ansible.builtin.service:
+    name: "rsyslog"
+    state: restarted
+
 - name: reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: true

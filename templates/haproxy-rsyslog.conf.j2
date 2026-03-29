@@ -1,0 +1,14 @@
+{#- jinja2: lstrip_blocks: true, trim_blocks: true -#}
+# {{ ansible_managed }}
+# Route HAProxy logs (facility {{ haproxy_logging.facility }}) to a dedicated file.
+
+{% if haproxy_logging.rsyslog.udp_listen | default(false) %}
+# Enable UDP syslog reception on 127.0.0.1:514
+module(load="imudp")
+input(type="imudp" address="127.0.0.1" port="514")
+{% endif %}
+
+if ($programname startswith "haproxy") then {
+    action(type="omfile" file="{{ haproxy_log_file }}")
+    stop
+}

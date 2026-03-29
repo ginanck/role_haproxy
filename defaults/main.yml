@@ -7,7 +7,8 @@
 
 haproxy_config_dir: "/etc/haproxy"
 haproxy_destination_config_path: "{{ haproxy_config_dir }}/haproxy.cfg"
-haproxy_log_file: "/var/log/haproxy.log"
+haproxy_log_dir: "/var/log/haproxy"
+haproxy_log_file: "{{ haproxy_log_dir }}/haproxy.log"
 haproxy_logrotate_file: /etc/logrotate.d/haproxy
 
 haproxy_whitelist_file_dir: "{{ haproxy_config_dir }}/whitelist"
@@ -498,6 +499,14 @@ haproxy_logging:
   custom_log_format: ""
   # Per-backend log level override: { backend_name: "warning" }
   per_backend_log_level: {}
+  # Rsyslog configuration for receiving HAProxy logs
+  rsyslog:
+    # Enable UDP listener on 127.0.0.1:514 (needed when global log target is 127.0.0.1)
+    udp_listen: false
+  # Logrotate settings for the HAProxy log file
+  logrotate:
+    frequency: daily
+    retain: 14
 
 # ================================================================
 # STATS & MONITORING
