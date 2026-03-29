@@ -449,7 +449,7 @@ This role performs the following tasks:
 | [Install Rsyslog Package](tasks/logging.yml#L) | ansible.builtin.package | No | N/A |
 | [Create HAProxy Log Directory](tasks/logging.yml#L) | ansible.builtin.file | No | N/A |
 | [Deploy Rsyslog Configuration for HAProxy](tasks/logging.yml#L) | ansible.builtin.template | No | N/A |
-| [Enable and Start Rsyslog Service](tasks/logging.yml#L) | ansible.builtin.service | No | N/A |
+| [Enable and Start Rsyslog Service](tasks/logging.yml#L) | ansible.builtin.service | Yes | N/A |
 | [Deploy Logrotate Configuration for HAProxy](tasks/logging.yml#L) | ansible.builtin.template | No | N/A |
 
 

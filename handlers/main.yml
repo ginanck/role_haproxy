@@ -20,6 +20,7 @@
   ansible.builtin.service:
     name: "rsyslog"
     state: restarted
+  when: ansible_facts['virtualization_type'] not in ['container', 'docker']
 
 - name: reload systemd daemon
   ansible.builtin.systemd:

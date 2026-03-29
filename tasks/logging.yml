@@ -29,6 +29,7 @@
     name: rsyslog
     state: started
     enabled: true
+  when: ansible_facts['virtualization_type'] not in ['container', 'docker']
 
 - name: Deploy Logrotate Configuration for HAProxy
   ansible.builtin.template:
