@@ -577,15 +577,12 @@
    stick-table used by rate limits. Called once at config level.
 ----------------------------------------------------------------- #}
 {%- macro add_rate_limit_tables(stick_tables, rate_limits) %}
-    {% if stick_tables is defined and rate_limits is defined %}
-        {% set _used_tables = rate_limits | map(attribute='table') | unique | list %}
+    {% if stick_tables is defined %}
         {% for table in stick_tables %}
-            {% if table.name in _used_tables %}
 
 backend {{ table.name }}
     stick-table type {{ table.type }} size {{ table.size }}{{ " expire " ~ table.expire if table.expire is defined else "" }}{% if table.store is defined %} store {{ table.store | join(",") }}{% endif %}
 
-            {% endif %}
         {% endfor %}
     {% endif %}
 {%- endmacro %}
