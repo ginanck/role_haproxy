@@ -553,23 +553,36 @@
 ----------------------------------------------------------------- #}
 {%- macro add_rate_limiting(item, rate_limits, stick_tables) %}
     {% if rate_limits is defined and stick_tables is defined %}
+        {% set _seen_tables = [] %}
         {% for limit in rate_limits %}
             {% if limit.apply_to == 'frontend' or limit.apply_to == item.name %}
-                {% for table in stick_tables %}
-                    {% if table.name == limit.table %}
+                {% if limit.table not in _seen_tables %}
+                    {% if _seen_tables.append(limit.table) %}{% endif %}
+    tcp-request connection track-sc0 {{ limit.track | default('src') }} table {{ limit.table }}
+                {% endif %}
+                {% if limit.action | default('reject') == 'reject' %}
+    tcp-request connection reject if {{ limit.condition }}
+                {% elif limit.action == 'tarpit' %}
+    tcp-request connection tarpit if {{ limit.condition }}
+                {% elif limit.action == 'deny' %}
+    http-request deny if {{ limit.condition }}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{%- endmacro %}
+
+{# -----------------------------------------------------------------
+   add_rate_limit_tables — emit standalone backend sections for each
+   stick-table used by rate limits. Called once at config level.
+----------------------------------------------------------------- #}
+{%- macro add_rate_limit_tables(stick_tables, rate_limits) %}
+    {% if stick_tables is defined %}
+        {% for table in stick_tables %}
+
+backend {{ table.name }}
     stick-table type {{ table.type }} size {{ table.size }}{{ " expire " ~ table.expire if table.expire is defined else "" }}{% if table.store is defined %} store {{ table.store | join(",") }}{% endif %}
 
-    tcp-request connection track-sc0 {{ limit.track | default('src') }}
-                        {% if limit.action | default('reject') == 'reject' %}
-    tcp-request connection reject if {{ limit.condition }}
-                        {% elif limit.action == 'tarpit' %}
-    tcp-request connection tarpit if {{ limit.condition }}
-                        {% elif limit.action == 'deny' %}
-    http-request deny if {{ limit.condition }}
-                        {% endif %}
-                    {% endif %}
-                {% endfor %}
-            {% endif %}
         {% endfor %}
     {% endif %}
 {%- endmacro %}
