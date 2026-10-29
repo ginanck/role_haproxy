@@ -3,28 +3,9 @@ dependency:
   name: shell
   command: |
     set -eu
-    mkdir -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles" "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
-
-    rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base"
-    if [ -d "${MOLECULE_PROJECT_DIRECTORY}/../role_base" ]; then
-      cp -a "${MOLECULE_PROJECT_DIRECTORY}/../role_base" "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base"
-      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base/.git"
-      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base/collections"
-      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base/dependency"
-    elif [ -f meta/install_requirements.yml ]; then
-      ansible-galaxy role install -r meta/install_requirements.yml -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles" --force
-    else
-      echo "role_base is missing and meta/install_requirements.yml does not exist" >&2
-      exit 1
-    fi
-
-    if [ -d "${MOLECULE_PROJECT_DIRECTORY}/../role_base/dependency/collections/ansible_collections" ]; then
-      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
-      mkdir -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
-      cp -a "${MOLECULE_PROJECT_DIRECTORY}/../role_base/dependency/collections/." "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections/"
-    elif [ -f meta/install_requirements.yml ]; then
-      ansible-galaxy collection install -r meta/install_requirements.yml -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections" --force
-    fi
+    rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency"
+    ansible-galaxy role install -r "${MOLECULE_PROJECT_DIRECTORY}/meta/install_requirements.yml" -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles"
+    ansible-galaxy collection install -r "${MOLECULE_PROJECT_DIRECTORY}/meta/install_requirements.yml" -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
 driver:
   name: docker
 platforms:
