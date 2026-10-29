@@ -1,8 +1,61 @@
 ---
 - name: Verify
   hosts: all
-  gather_facts: false
+  become: true
+  gather_facts: true
+  vars:
+    haproxy_stats_password: "molecule-stats-secret"
   tasks:
-    - name: Example assertion
+    - name: test_ac1_service_is_enabled_and_running
+      ansible.builtin.command:
+        cmd: systemctl is-active haproxy
+      changed_when: false
+      register: haproxy_active
+
+    - name: test_ac1_assert_service_state
       ansible.builtin.assert:
-        that: true
+        that:
+          - haproxy_active.stdout | trim == 'active'
+          - ansible_facts.services['haproxy.service'].status | default('enabled') == 'enabled'
+        fail_msg: "haproxy must be enabled and running"
+
+    - name: test_ac2_staged_config_is_valid
+      ansible.builtin.command:
+        cmd: "haproxy -c -f /etc/haproxy/haproxy.cfg.staged"
+      changed_when: false
+      register: staged_check
+
+    - name: test_ac2_live_config_matches_staged
+      ansible.builtin.slurp:
+        src: "/etc/haproxy/haproxy.cfg"
+      register: live_cfg
+
+    - name: test_ac2_staged_matches_live
+      ansible.builtin.slurp:
+        src: "/etc/haproxy/haproxy.cfg.staged"
+      register: staged_cfg
+
+    - name: test_ac2_assert_staged_equals_live
+      ansible.builtin.assert:
+        that:
+          - live_cfg.content == staged_cfg.content
+        fail_msg: "the live configuration must match the validated staged configuration"
+
+    - name: test_ac5_certificate_directory_mode
+      ansible.builtin.stat:
+        path: "/etc/haproxy/certs"
+      register: cert_dir
+
+    - name: test_ac5_assert_certificate_directory_mode
+      ansible.builtin.assert:
+        that:
+          - cert_dir.stat.mode == '0750'
+        fail_msg: "the certificate directory must be 0750"
+      when: cert_dir.stat.exists
+
+    - name: test_ac6_no_default_stats_password
+      ansible.builtin.assert:
+        that:
+          - "'password123' not in (live_cfg.content | b64decode)"
+          - "'stats auth' not in (live_cfg.content | b64decode) or haproxy_stats_password in (live_cfg.content | b64decode)"
+        fail_msg: "the rendered configuration must use the vault supplied stats password"

@@ -15,7 +15,7 @@ galaxy_info:
   namespace: core
   role_name: role_haproxy
 
-  license: license (GPL-2.0-or-later, MIT, etc)
+  license: MIT
   min_ansible_version: "2.9"
 
   platforms:

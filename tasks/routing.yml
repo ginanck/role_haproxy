@@ -82,18 +82,28 @@
 # Policy routing — add default route per table
 # ----------------------------------------------------------------
 
+- name: Check Existing Policy Routing Table Default Routes
+  ansible.builtin.command:
+    cmd: "ip route show default table {{ item.name }}"
+  loop: "{{ haproxy_policy_routing.tables | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: _existing_policy_routes
+  changed_when: false
+  failed_when: false
+  when: haproxy_policy_routing.enabled | default(false)
+
 - name: Add Policy Routing Table Default Routes
   ansible.builtin.command:
     cmd: >-
       ip route replace default
-      via {{ item.gateway }}
-      {{ 'dev ' ~ item.interface if item.interface is defined and item.interface != '' else '' }}
-      table {{ item.name }}
-  loop: "{{ haproxy_policy_routing.tables | default([]) }}"
+      via {{ item.item.gateway }}
+      {{ 'dev ' ~ item.item.interface if item.item.interface is defined and item.item.interface != '' else '' }}
+      table {{ item.item.name }}
+  loop: "{{ _existing_policy_routes.results | default([]) }}"
   loop_control:
-    label: "{{ item.name }}"
-  register: _policy_route_result
-  changed_when: _policy_route_result.rc == 0
+    label: "{{ item.item.name }}"
+  changed_when: item.item.gateway not in (item.stdout | default(''))
   when: haproxy_policy_routing.enabled | default(false)
 
 # ----------------------------------------------------------------

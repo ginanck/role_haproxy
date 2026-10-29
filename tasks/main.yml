@@ -5,6 +5,9 @@
   ansible.builtin.package_facts:
     manager: auto
 
+- name: Run Pre-flight Checks
+  ansible.builtin.include_tasks: preflight.yml
+
 - name: Install HAProxy Package from Repository
   vars:
     supported_os: ["RedHat", "Debian"]
@@ -20,8 +23,8 @@
     path: "{{ haproxy_cert_dir }}"
     state: directory
     owner: root
-    group: root
-    mode: 0644
+    group: "{{ haproxy_cert_group }}"
+    mode: '0750'
   when: haproxy_cert_name | length > 0
 
 - name: Copy Certificate to Host
@@ -29,8 +32,8 @@
     src: "{{ haproxy_cert_name }}"
     dest: "{{ haproxy_cert_dir }}/{{ haproxy_cert_name }}"
     owner: root
-    group: root
-    mode: 0644
+    group: "{{ haproxy_cert_group }}"
+    mode: '0640'
   when: haproxy_cert_name | length > 0
 
 - name: Create Whitelist Folder
@@ -39,7 +42,7 @@
     state: directory
     owner: root
     group: root
-    mode: 0644
+    mode: '0755'
   when: haproxy_whitelist_file_name | length > 0
 
 - name: Copy Whitelist File to Host
@@ -82,15 +85,30 @@
 # Configuration rendering
 # ----------------------------------------------------------------
 
-- name: Configure haproxy using haproxy.cfg
+- name: Render HAProxy configuration to the staging path
   ansible.builtin.template:
     src: haproxy.cfg.j2
+    dest: "{{ haproxy_config_staging_path }}"
+    owner: root
+    group: "{{ haproxy_global.group | default('haproxy') }}"
+    mode: '0640'
+  no_log: true
+
+- name: Validate the staged HAProxy configuration
+  ansible.builtin.command:
+    cmd: "haproxy -c -f {{ haproxy_config_staging_path }}"
+  changed_when: false
+
+- name: Install the validated HAProxy configuration
+  ansible.builtin.copy:
+    src: "{{ haproxy_config_staging_path }}"
     dest: "{{ haproxy_destination_config_path }}"
+    remote_src: true
     owner: root
     group: root
-    mode: 0644
+    mode: '0644'
+  no_log: true
   notify:
-    - validate haproxy config
     - reload haproxy
 
 # ----------------------------------------------------------------

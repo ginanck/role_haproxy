@@ -16,6 +16,14 @@ haproxy_whitelist_file_name: ""
 
 haproxy_cert_dir: "{{ haproxy_config_dir }}/certs"
 haproxy_cert_name: ""
+# Group that may read the certificate PEM files (HAProxy runs as this group)
+haproxy_cert_group: "haproxy"
+
+# Staged configuration used to validate before the live file is replaced
+haproxy_config_staging_path: "{{ haproxy_destination_config_path }}.staged"
+
+# Stats credentials: set haproxy_stats_password from the vault. No default is shipped.
+haproxy_stats_password: ""
 
 # ================================================================
 # NETWORK
@@ -399,7 +407,7 @@ haproxy_listen:
       realm: HAProxy\ Statistics
       auth:
         - login: admin-user
-          password: password123
+          password: "{{ haproxy_stats_password }}"
       refresh: 5s
 
 # ================================================================

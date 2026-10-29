@@ -2,5 +2,8 @@
 - name: Converge
   hosts: all
   become: true
+  vars:
+    # Test fixture only: the role requires a vault supplied stats password.
+    haproxy_stats_password: "molecule-stats-secret"
   roles:
     - role_haproxy

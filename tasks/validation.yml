@@ -92,6 +92,23 @@
     - haproxy_policy_routing.enabled | default(false)
     - haproxy_policy_routing.tables | default([]) | length > 1
 
+- name: Assert every stats endpoint uses a vault supplied password
+  ansible.builtin.assert:
+    that:
+      - item.1.password | default('') | length > 0
+      - item.1.password | default('') != 'password123'
+    fail_msg: >-
+      Stats endpoint in {{ item.0.name }} has an empty or well-known password.
+      Set haproxy_stats_password from the vault instead of shipping a literal.
+  loop: >-
+    {{ (haproxy_listen | default([]) + haproxy_frontend | default([]) + haproxy_backend | default([]))
+       | selectattr('stats', 'defined')
+       | selectattr('stats.auth', 'defined')
+       | list
+       | subelements('stats.auth') }}
+  loop_control:
+    label: "{{ item.0.name }} / {{ item.1.login }}"
+
 - name: Validate HAProxy configuration syntax
   ansible.builtin.command:
     cmd: "haproxy -c -f {{ haproxy_destination_config_path }}"

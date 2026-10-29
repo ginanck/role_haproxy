@@ -1,0 +1,31 @@
+---
+
+- name: Assert a vault supplied stats password when stats auth is configured
+  ansible.builtin.assert:
+    that:
+      - haproxy_stats_password | default('') | length > 0
+    fail_msg: >-
+      A stats endpoint with authentication is configured but haproxy_stats_password
+      is empty. Provide it from the vault; this role ships no default password.
+    quiet: true
+  when: >-
+    (haproxy_listen | default([]) + haproxy_frontend | default([]) + haproxy_backend | default([]))
+    | selectattr('stats', 'defined')
+    | selectattr('stats.auth', 'defined')
+    | list | length > 0
+
+- name: Assert the certificate group exists when a certificate is deployed
+  ansible.builtin.getent:
+    database: group
+    key: "{{ haproxy_cert_group }}"
+  register: haproxy_cert_group_entry
+  failed_when: false
+  when: haproxy_cert_name | length > 0
+
+- name: Fail when the certificate group is missing
+  ansible.builtin.assert:
+    that:
+      - haproxy_cert_group_entry.ansible_facts.getent_group is defined
+    fail_msg: "Group {{ haproxy_cert_group }} must exist to read the certificate files"
+    quiet: true
+  when: haproxy_cert_name | length > 0
