@@ -4,3 +4,26 @@
   become: true
   roles:
     - role_base
+  tasks:
+    - name: Ensure openssl is present for the certificate fixture
+      ansible.builtin.package:
+        name: openssl
+        state: present
+
+    - name: Create the certificate fixture directory
+      ansible.builtin.file:
+        path: /etc/haproxy/certs
+        state: directory
+        owner: root
+        group: root
+        mode: '0750'
+
+    - name: Generate a self-signed certificate for the certificate fixture
+      ansible.builtin.command:
+        cmd: >-
+          openssl req -x509 -nodes -newkey rsa:2048 -days 2
+          -subj /CN=molecule.local
+          -keyout /etc/haproxy/certs/molecule.key
+          -out /etc/haproxy/certs/molecule.crt
+      args:
+        creates: /etc/haproxy/certs/molecule.crt

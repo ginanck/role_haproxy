@@ -53,6 +53,30 @@
         fail_msg: "the certificate directory must be 0750"
       when: cert_dir.stat.exists
 
+    - name: test_ac7_certificate_pair_mode
+      ansible.builtin.stat:
+        path: /etc/haproxy/certs/deployed.crt
+      register: deployed_haproxy_cert
+
+    - name: test_ac7_assert_certificate_pair_mode
+      ansible.builtin.assert:
+        that:
+          - deployed_haproxy_cert.stat.exists
+          - deployed_haproxy_cert.stat.mode == '0640'
+        fail_msg: "declared certificate pairs must be installed with mode 0640"
+
+    - name: test_ac11_runtime_socket_directory_mode
+      ansible.builtin.stat:
+        path: /var/run/haproxy
+      register: haproxy_socket_dir
+
+    - name: test_ac11_assert_runtime_socket_directory_mode
+      ansible.builtin.assert:
+        that:
+          - haproxy_socket_dir.stat.exists
+          - haproxy_socket_dir.stat.mode == '0750'
+        fail_msg: "the runtime socket directory must be 0750"
+
     - name: test_ac6_no_default_stats_password
       ansible.builtin.assert:
         that:

@@ -27,14 +27,8 @@
     mode: '0750'
   when: haproxy_cert_name | length > 0
 
-- name: Copy Certificate to Host
-  ansible.builtin.copy:
-    src: "{{ haproxy_cert_name }}"
-    dest: "{{ haproxy_cert_dir }}/{{ haproxy_cert_name }}"
-    owner: root
-    group: "{{ haproxy_cert_group }}"
-    mode: '0640'
-  when: haproxy_cert_name | length > 0
+- name: Deploy Certificates
+  ansible.builtin.include_tasks: certs.yml
 
 - name: Create Whitelist Folder
   ansible.builtin.file:
@@ -71,7 +65,7 @@
     state: directory
     owner: "{{ haproxy_global.user | default('haproxy') }}"
     group: "{{ haproxy_global.group | default('haproxy') }}"
-    mode: "0755"
+    mode: "{{ haproxy_stats.runtime_api.socket_dir_mode | default('0750') }}"
   when: haproxy_stats.runtime_api.enabled | default(false)
 
 # ----------------------------------------------------------------
@@ -84,6 +78,10 @@
 # ----------------------------------------------------------------
 # Configuration rendering
 # ----------------------------------------------------------------
+
+- name: Restore an archived configuration when requested
+  ansible.builtin.include_tasks: restore.yml
+  when: haproxy_restore_config | length > 0
 
 - name: Render HAProxy configuration to the staging path
   ansible.builtin.template:
@@ -98,6 +96,9 @@
   ansible.builtin.command:
     cmd: "haproxy -c -f {{ haproxy_config_staging_path }}"
   changed_when: false
+
+- name: Back up the configuration that is about to be replaced
+  ansible.builtin.include_tasks: backup.yml
 
 - name: Install the validated HAProxy configuration
   ansible.builtin.copy:
@@ -117,6 +118,14 @@
 
 - name: Run pre-flight validation checks
   ansible.builtin.include_tasks: validation.yml
+
+- name: Apply SELinux settings
+  ansible.builtin.include_tasks: selinux.yml
+  when: haproxy_selinux_manage | bool
+
+- name: Manage firewall rules
+  ansible.builtin.include_tasks: firewall.yml
+  when: haproxy_firewall_manage | bool
 
 # ----------------------------------------------------------------
 # Service state

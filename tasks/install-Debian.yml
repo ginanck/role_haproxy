@@ -1,7 +1,11 @@
 ---
 
-- name: Install HAProxy from APT Repository
+- name: Include the official HAProxy repository when requested
+  ansible.builtin.include_tasks: repo-Debian.yml
+
+- name: Install HAProxy from the configured APT source
   ansible.builtin.apt:
-    name: haproxy
+    name: "haproxy{{ ('=' ~ haproxy_version) if haproxy_version | length > 0 else '' }}"
     state: present
-    update_cache: yes
+    update_cache: true
+    cache_valid_time: 3600

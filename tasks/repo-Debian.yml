@@ -1,0 +1,20 @@
+---
+
+- name: Add the official HAProxy repository signing key
+  ansible.builtin.get_url:
+    url: https://haproxy.debian.net/bernat.debian.org.gpg
+    dest: /usr/share/keyrings/haproxy.debian.net.gpg
+    owner: root
+    group: root
+    mode: '0644'
+  when: haproxy_use_official_repo | bool
+
+- name: Add the official HAProxy repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/haproxy.debian.net.gpg]
+      https://haproxy.debian.net {{ ansible_distribution_release }} main
+    filename: haproxy
+    state: present
+    update_cache: true
+  when: haproxy_use_official_repo | bool

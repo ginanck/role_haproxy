@@ -1,0 +1,92 @@
+---
+
+- name: Deploy the legacy single certificate
+  ansible.builtin.copy:
+    src: "{{ haproxy_cert_name }}"
+    dest: "{{ haproxy_cert_dir }}/{{ haproxy_cert_name }}"
+    owner: root
+    group: "{{ haproxy_cert_group }}"
+    mode: '0640'
+  when: haproxy_cert_name | length > 0
+  no_log: true
+  notify: reload haproxy
+
+- name: Deploy the declared certificate pairs
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: "{{ item.remote_src | default(false) }}"
+    owner: root
+    group: "{{ item.group | default(haproxy_cert_group) }}"
+    mode: "{{ item.mode | default('0640') }}"
+  loop: "{{ haproxy_certificates }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  no_log: true
+  notify: reload haproxy
+
+- name: Prepare a working directory for PEM bundling
+  ansible.builtin.file:
+    path: "/var/tmp/haproxy-pem-{{ idx }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  loop: "{{ haproxy_certificates | selectattr('cert_src', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.dest }}"
+    index_var: idx
+
+- name: Stage the certificate fragment for PEM bundling
+  ansible.builtin.copy:
+    src: "{{ item.cert_src }}"
+    dest: "/var/tmp/haproxy-pem-{{ idx }}/01-cert.pem"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ haproxy_certificates | selectattr('cert_src', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.dest }}"
+    index_var: idx
+
+- name: Stage the private key fragment for PEM bundling
+  ansible.builtin.copy:
+    src: "{{ item.key_src }}"
+    dest: "/var/tmp/haproxy-pem-{{ idx }}/02-key.pem"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ haproxy_certificates | selectattr('cert_src', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.dest }}"
+    index_var: idx
+
+- name: Stage the chain fragment for PEM bundling
+  ansible.builtin.copy:
+    src: "{{ item.chain_src }}"
+    dest: "/var/tmp/haproxy-pem-{{ idx }}/03-chain.pem"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ haproxy_certificates | selectattr('chain_src', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.dest }}"
+    index_var: idx
+
+- name: Assemble the PEM bundle expected by HAProxy
+  ansible.builtin.assemble:
+    src: "/var/tmp/haproxy-pem-{{ idx }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: "{{ item.group | default(haproxy_cert_group) }}"
+    mode: "{{ item.mode | default('0640') }}"
+    delimiter: ''
+  loop: "{{ haproxy_certificates | selectattr('cert_src', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.dest }}"
+    index_var: idx
+  no_log: true
+  notify: reload haproxy

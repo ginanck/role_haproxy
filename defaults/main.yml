@@ -16,11 +16,27 @@ haproxy_whitelist_file_name: ""
 
 haproxy_cert_dir: "{{ haproxy_config_dir }}/certs"
 haproxy_cert_name: ""
+# Additional certificate pairs: [{src: files/site.pem, dest: /etc/haproxy/certs/site.pem, remote_src: true}]
+haproxy_certificates: []
 # Group that may read the certificate PEM files (HAProxy runs as this group)
 haproxy_cert_group: "haproxy"
 
 # Staged configuration used to validate before the live file is replaced
 haproxy_config_staging_path: "{{ haproxy_destination_config_path }}.staged"
+
+# Package source and version pinning
+haproxy_use_official_repo: false
+haproxy_version: ""
+
+# Config backup and restore
+haproxy_backup_dir: /var/backups/haproxy
+haproxy_backup_retention_days: 30
+haproxy_restore_config: ""
+
+# SELinux boolean and firewall management
+haproxy_selinux_manage: true
+haproxy_firewall_manage: false
+haproxy_firewall_ports: []
 
 # Stats credentials: set haproxy_stats_password from the vault. No default is shipped.
 haproxy_stats_password: ""
@@ -529,6 +545,8 @@ haproxy_stats:
     # Enable HAProxy runtime API socket (for live reloads, server manipulation)
     enabled: false
     socket: /var/run/haproxy/admin.sock
+    socket_mode: "660"
+    socket_dir_mode: "0750"
     level: admin   # user / operator / admin
 
 # ================================================================

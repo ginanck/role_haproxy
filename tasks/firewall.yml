@@ -1,0 +1,10 @@
+---
+
+- name: Open the declared HAProxy ports in firewalld
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ haproxy_firewall_ports }}"
+  when: ansible_os_family == 'RedHat'

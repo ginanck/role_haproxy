@@ -1,7 +1,7 @@
 ---
 
-- name: Install HAProxy from YUM Repository
+- name: Install HAProxy from the configured DNF source
   ansible.builtin.dnf:
-    name: haproxy
+    name: "haproxy{{ ('-' ~ haproxy_version) if haproxy_version | length > 0 else '' }}"
     state: present
-    update_cache: yes
+    update_cache: true

@@ -1,0 +1,12 @@
+---
+
+- name: Allow HAProxy to connect to any backend port under SELinux
+  ansible.posix.seboolean:
+    name: "{{ item }}"
+    state: true
+    persistent: true
+  loop:
+    - haproxy_connect_any
+  when:
+    - ansible_os_family == 'RedHat'
+    - ansible_selinux.status | default('disabled') == 'enabled'

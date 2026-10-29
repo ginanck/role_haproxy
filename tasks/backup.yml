@@ -1,0 +1,52 @@
+---
+
+- name: Read the live configuration checksum
+  ansible.builtin.stat:
+    path: "{{ haproxy_destination_config_path }}"
+    checksum_algorithm: sha1
+  register: haproxy_live_config_stat
+
+- name: Read the candidate configuration checksum
+  ansible.builtin.stat:
+    path: "{{ haproxy_config_staging_path }}"
+    checksum_algorithm: sha1
+  register: haproxy_candidate_config_stat
+
+- name: Create the configuration backup directory
+  ansible.builtin.file:
+    path: "{{ haproxy_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when:
+    - haproxy_live_config_stat.stat.exists
+    - haproxy_live_config_stat.stat.checksum | default('') != haproxy_candidate_config_stat.stat.checksum | default('')
+
+- name: Back up the configuration that is about to be replaced
+  ansible.builtin.copy:
+    src: "{{ haproxy_destination_config_path }}"
+    dest: "{{ haproxy_backup_dir }}/haproxy.cfg.{{ now(utc=true, fmt='%Y%m%dT%H%M%S') }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0600'
+  when:
+    - haproxy_live_config_stat.stat.exists
+    - haproxy_live_config_stat.stat.checksum | default('') != haproxy_candidate_config_stat.stat.checksum | default('')
+
+- name: Prune expired configuration backups
+  ansible.builtin.find:
+    paths: "{{ haproxy_backup_dir }}"
+    patterns: "haproxy.cfg.*"
+    age: "{{ haproxy_backup_retention_days }}d"
+    age_stamp: ctime
+  register: haproxy_expired_backups
+
+- name: Remove expired configuration backups
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ haproxy_expired_backups.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"

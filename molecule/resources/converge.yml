@@ -5,5 +5,15 @@
   vars:
     # Test fixture only: the role requires a vault supplied stats password.
     haproxy_stats_password: "molecule-stats-secret"
+    haproxy_stats:
+      runtime_api:
+        enabled: true
+        socket: /var/run/haproxy/admin.sock
+        socket_mode: "660"
+        socket_dir_mode: "0750"
+    haproxy_certificates:
+      - src: /etc/haproxy/certs/molecule.crt
+        dest: /etc/haproxy/certs/deployed.crt
+        remote_src: true
   roles:
     - role_haproxy

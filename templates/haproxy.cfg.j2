@@ -1,4 +1,4 @@
-#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+#jinja2: lstrip_blocks: True, trim_blocks: True
 {% import "macros.j2" as macro %}
 # =============================================================================
 # HAProxy configuration — managed by Ansible (role_haproxy)
@@ -92,20 +92,17 @@ global
 {% endif %}
 
     # --- Stats sockets ---
-{%if haproxy_global.stats_socket is defined %}
-  {% for item in haproxy_global.stats_socket %}
-    {% if item.path is defined %}
-    stats socket {{ item.path }}{%
-        if item.mode is defined %} mode {{ item.mode }}{% endif %}{%
-        if item.user is defined %} user {{ item.user }}{% endif %}
-{# whitespace #}
-    {% elif item.address is defined and item.port is defined %}
-    stats socket {{ item.address }}:{{ item.port }}
-    {% endif %}
-  {% endfor %}
+{% if haproxy_global.stats_socket is defined %}
+{% for item in haproxy_global.stats_socket %}
+{% if item.path is defined %}
+{{ '    stats socket ' ~ item.path ~ (' mode ' ~ item.mode if item.mode is defined else '') ~ (' user ' ~ item.user if item.user is defined else '') }}
+{% elif item.address is defined and item.port is defined %}
+{{ '    stats socket ' ~ item.address ~ ':' ~ item.port }}
+{% endif %}
+{% endfor %}
 {% endif %}
 {% if haproxy_stats.runtime_api.enabled | default(false) %}
-    stats socket {{ haproxy_stats.runtime_api.socket }} mode 660 level {{ haproxy_stats.runtime_api.level | default('admin') }} expose-fd listeners
+    stats socket {{ haproxy_stats.runtime_api.socket }} mode {{ haproxy_stats.runtime_api.socket_mode | default('660') }} level {{ haproxy_stats.runtime_api.level | default('admin') }} expose-fd listeners
 {% endif %}
 
 

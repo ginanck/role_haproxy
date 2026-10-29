@@ -1,0 +1,67 @@
+---
+dependency:
+  name: shell
+  command: |
+    set -eu
+    mkdir -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles" "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
+
+    rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base"
+    if [ -d "${MOLECULE_PROJECT_DIRECTORY}/../role_base" ]; then
+      cp -a "${MOLECULE_PROJECT_DIRECTORY}/../role_base" "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base"
+      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base/.git"
+      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles/role_base/collections"
+    else
+      ansible-galaxy role install -r meta/install_requirements.yml -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/roles" --force
+    fi
+
+    if [ -d "${MOLECULE_PROJECT_DIRECTORY}/../role_base/collections/ansible_collections" ]; then
+      rm -rf "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
+      mkdir -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections"
+      cp -a "${MOLECULE_PROJECT_DIRECTORY}/../role_base/collections/." "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections/"
+    else
+      ansible-galaxy collection install -r meta/install_requirements.yml -p "${MOLECULE_PROJECT_DIRECTORY}/dependency/collections" --force
+    fi
+driver:
+  name: docker
+platforms:
+  - name: rockylinux-9
+    image: ghcr.io/ginanck/molecule-rockylinux:9-latest
+    pre_build_image: true
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    command: /usr/sbin/init
+    tmpfs:
+      - /run
+      - /tmp
+      - /run/lock
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/dependency/roles:${MOLECULE_PROJECT_DIRECTORY}/..
+    ANSIBLE_COLLECTIONS_PATH: ${MOLECULE_PROJECT_DIRECTORY}/dependency/collections
+  inventory:
+    host_vars:
+      rockylinux-9:
+        ansible_user: root
+        base_hostname: "rockylinux-9"
+  playbooks:
+    converge: ../resources/converge.yml
+    prepare: ../resources/prepare.yml
+    verify: ../resources/verify.yml
+verifier:
+  name: ansible
+scenario:
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - side_effect
+    - verify
+    - cleanup
+    - destroy

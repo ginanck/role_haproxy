@@ -1,0 +1,35 @@
+---
+
+- name: Validate the requested restore archive
+  ansible.builtin.assert:
+    that:
+      - haproxy_restore_config | length > 0
+      - haproxy_restore_config is file
+    fail_msg: "haproxy_restore_config must name an existing configuration backup"
+    quiet: true
+
+- name: Stage the archived configuration
+  ansible.builtin.copy:
+    src: "{{ haproxy_restore_config }}"
+    dest: "{{ haproxy_config_staging_path }}"
+    remote_src: true
+    owner: root
+    group: "{{ haproxy_global.group | default('haproxy') }}"
+    mode: '0640'
+  no_log: true
+
+- name: Validate the restored configuration
+  ansible.builtin.command:
+    cmd: "haproxy -c -f {{ haproxy_config_staging_path }}"
+  changed_when: false
+
+- name: Install the restored configuration
+  ansible.builtin.copy:
+    src: "{{ haproxy_config_staging_path }}"
+    dest: "{{ haproxy_destination_config_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0644'
+  no_log: true
+  notify: reload haproxy
