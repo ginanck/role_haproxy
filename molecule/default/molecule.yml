@@ -28,8 +28,8 @@ dependency:
 driver:
   name: docker
 platforms:
-  - name: rockylinux-9
-    image: ghcr.io/ginanck/molecule-rockylinux:9-latest
+  - name: rockylinux-8
+    image: ghcr.io/ginanck/molecule-rockylinux:8-latest
     pre_build_image: true
     privileged: true
     volumes:
@@ -47,9 +47,9 @@ provisioner:
     ANSIBLE_COLLECTIONS_PATH: ${MOLECULE_PROJECT_DIRECTORY}/dependency/collections
   inventory:
     host_vars:
-      rockylinux-9:
+      rockylinux-8:
         ansible_user: root
-        base_hostname: "rockylinux-9"
+        base_hostname: "rockylinux-8"
   playbooks:
     converge: ../resources/converge.yml
     prepare: ../resources/prepare.yml

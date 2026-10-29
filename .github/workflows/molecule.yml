@@ -17,7 +17,6 @@ on:
         options:
           - all
           - default
-          - rockylinux-8
           - rockylinux-9
       debug_mode:
         description: 'Enable debug mode for verbose output'
